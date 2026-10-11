@@ -1,0 +1,17 @@
+{
+  "name": "sampel-spdt-vercel",
+  "version": "1.0.0",
+  "description": "Sistem Pergantian Sampel DSRT 7301 Multi-User BPS Selayar",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "bps",
+    "dsrt",
+    "sampling",
+    "multi-user"
+  ],
+  "author": "BPS Kabupaten Kepulauan Selayar",
+  "license": "MIT"
+}

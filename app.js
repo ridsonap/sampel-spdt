@@ -1,6 +1,6 @@
 /**
- * app.js - Logika Bisnis Sistem Pergantian Sampel DSRT 7301
- * BPS Kabupaten Kepulauan Selayar
+ * app.js - Logika Bisnis & Sinkronisasi Cloud Multi-User
+ * BPS Kabupaten Kepulauan Selayar (DSRT 7301)
  */
 
 // State Management
@@ -8,6 +8,7 @@ const STATE = {
   user: null,
   data: [],            // Seluruh 1.643 data (Utama + Pengganti)
   replacements: {},    // Map: utamaId -> ReplacementRecord
+  cloudSync: false,    // Indikator status koneksi ke cloud (Vercel KV)
   filters: {
     search: '',
     kec: '',
@@ -32,12 +33,13 @@ const STORAGE_KEYS = {
   REPLACEMENTS: 'dsrt_7301_replacements_v1'
 };
 
-// Default Credentials
 const CREDENTIALS = {
   username: 'bps7301',
   password: 'selayar2026',
   pin: '7301'
 };
+
+let syncInterval = null;
 
 // Inisialisasi Aplikasi
 document.addEventListener('DOMContentLoaded', () => {
@@ -46,6 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   renderKecamatanOptions();
   renderDashboard();
+
+  // Sinkronisasi awal dengan cloud & start background polling
+  syncWithCloud(false);
+  startAutoSync();
 });
 
 // Autentikasi
@@ -77,7 +83,7 @@ function handleLogin(e) {
     showAppScreen();
     showToast('Berhasil masuk ke sistem!', 'success');
   } else {
-    errorEl.textContent = 'Kredensial tidak valid. Silakan gunakan bps7301 / selayar2026';
+    errorEl.textContent = 'Kredensial tidak valid. Silakan periksa kembali.';
     errorEl.classList.remove('hidden');
   }
 }
@@ -85,6 +91,7 @@ function handleLogin(e) {
 function handleLogout() {
   sessionStorage.removeItem(STORAGE_KEYS.AUTH);
   STATE.user = null;
+  if (syncInterval) clearInterval(syncInterval);
   showLoginScreen();
   showToast('Sesi telah diakhiri.', 'info');
 }
@@ -97,18 +104,15 @@ function showLoginScreen() {
 function showAppScreen() {
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-app').classList.remove('hidden');
+  if (STATE.user && STATE.user.username) {
+    const el = document.getElementById('user-display');
+    if (el) el.textContent = STATE.user.username;
+  }
   renderDashboard();
 }
 
-function fillDemoLogin() {
-  document.getElementById('login-username').value = CREDENTIALS.username;
-  document.getElementById('login-password').value = CREDENTIALS.password;
-  handleLogin();
-}
-
-// Data Handling & LocalStorage
+// Data Handling & Local Storage
 function initData() {
-  // Load initial data dari data.js
   if (typeof INITIAL_DATA !== 'undefined' && Array.isArray(INITIAL_DATA)) {
     STATE.data = INITIAL_DATA;
   } else {
@@ -116,11 +120,11 @@ function initData() {
     STATE.data = [];
   }
 
-  // Load replacements dari localStorage
+  // Load cache lokal dulu
   try {
-    const savedReplacements = localStorage.getItem(STORAGE_KEYS.REPLACEMENTS);
-    if (savedReplacements) {
-      STATE.replacements = JSON.parse(savedReplacements);
+    const saved = localStorage.getItem(STORAGE_KEYS.REPLACEMENTS);
+    if (saved) {
+      STATE.replacements = JSON.parse(saved);
     }
   } catch (err) {
     console.warn('Gagal membaca localStorage:', err);
@@ -128,20 +132,107 @@ function initData() {
   }
 }
 
-function saveReplacements() {
+function saveLocalReplacements() {
   try {
     localStorage.setItem(STORAGE_KEYS.REPLACEMENTS, JSON.stringify(STATE.replacements));
   } catch (err) {
-    console.error('Gagal menyimpan ke localStorage:', err);
+    console.error('Gagal simpan lokal:', err);
   }
 }
 
-function resetAllData() {
-  if (confirm('Apakah Anda yakin ingin MENGHAPUS SEMUA riwayat pergantian sampel dan mengembalikan ke data awal?')) {
+// Cloud Synchronization (Vercel KV Serverless)
+async function syncWithCloud(showToastFeedback = false) {
+  const syncBtn = document.getElementById('btn-sync-cloud');
+  const syncIcon = document.getElementById('sync-icon');
+  const syncText = document.getElementById('sync-status-text');
+  const indicator = document.getElementById('cloud-indicator');
+
+  if (syncIcon) syncIcon.classList.add('animate-spin');
+  if (syncText) syncText.textContent = 'Menyinkronkan...';
+
+  try {
+    const response = await fetch('/api/replacements', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result && result.success && result.data) {
+        // Update state dengan data terbaru dari cloud
+        STATE.replacements = result.data;
+        saveLocalReplacements();
+        STATE.cloudSync = true;
+
+        if (indicator) {
+          indicator.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          indicator.title = result.source === 'kv' ? 'Tersinkronisasi Vercel KV' : 'Tersinkronisasi Cloud';
+        }
+
+        renderDashboard();
+        if (showToastFeedback) {
+          showToast(`Sinkronisasi sukses! (${result.count} sampel diganti)`, 'success');
+        }
+      }
+    } else {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } catch (err) {
+    // Mode offline / fallback ke localStorage
+    STATE.cloudSync = false;
+    if (indicator) {
+      indicator.className = 'w-2 h-2 rounded-full bg-amber-500';
+      indicator.title = 'Mode Offline (Menggunakan Cache Lokal)';
+    }
+    if (showToastFeedback) {
+      showToast('Tidak dapat terhubung ke cloud serverless. Menggunakan data lokal.', 'info');
+    }
+  } finally {
+    if (syncIcon) syncIcon.classList.remove('animate-spin');
+    if (syncText) syncText.textContent = 'Sinkron';
+  }
+}
+
+function startAutoSync() {
+  if (syncInterval) clearInterval(syncInterval);
+  // Auto-sync berkala setiap 25 detik agar pergantian dari petugas lain otomatis muncul
+  syncInterval = setInterval(() => {
+    if (STATE.user) {
+      syncWithCloud(false);
+    }
+  }, 25000);
+}
+
+async function pushReplacementToCloud(action, payload) {
+  try {
+    const response = await fetch('/api/replacements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload })
+    });
+    if (response.ok) {
+      const resData = await response.json();
+      if (resData && resData.data) {
+        STATE.replacements = resData.data;
+        saveLocalReplacements();
+        renderDashboard();
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn('Gagal push ke cloud API, perubahan tetap tersimpan lokal:', err);
+  }
+  return false;
+}
+
+async function resetAllData() {
+  if (confirm('PERINGATAN MULTI-USER:\nApakah Anda yakin ingin MENGHAPUS SEMUA riwayat pergantian sampel di cloud dan lokal?')) {
     STATE.replacements = {};
-    saveReplacements();
+    saveLocalReplacements();
     renderDashboard();
-    showToast('Data pergantian sampel berhasil di-reset.', 'info');
+
+    await pushReplacementToCloud('reset', {});
+    showToast('Seluruh data pergantian sampel telah di-reset.', 'info');
   }
 }
 
@@ -258,7 +349,6 @@ function renderTable() {
   const filtered = getFilteredUtamaList();
   const total = filtered.length;
 
-  // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(total / STATE.filters.perPage));
   if (STATE.filters.page > totalPages) STATE.filters.page = totalPages;
   const startIdx = (STATE.filters.page - 1) * STATE.filters.perPage;
@@ -371,7 +461,6 @@ function renderPaginationControls(totalPages) {
   const cur = STATE.filters.page;
   let buttons = [];
 
-  // Prev Button
   buttons.push(`
     <button onclick="changePage(${cur - 1})" ${cur === 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-100"'}
       class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700">
@@ -379,7 +468,6 @@ function renderPaginationControls(totalPages) {
     </button>
   `);
 
-  // Simple page range
   let start = Math.max(1, cur - 2);
   let end = Math.min(totalPages, cur + 2);
   for (let p = start; p <= end; p++) {
@@ -391,7 +479,6 @@ function renderPaginationControls(totalPages) {
     `);
   }
 
-  // Next Button
   buttons.push(`
     <button onclick="changePage(${cur + 1})" ${cur === totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-100"'}
       class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700">
@@ -420,7 +507,6 @@ function openReplaceModal(utamaId) {
   STATE.modal.alasan = 'Responden Menolak (Refusal)';
   STATE.modal.catatan = '';
 
-  // Render info target utama
   document.getElementById('modal-utama-nama').textContent = item.nama;
   document.getElementById('modal-utama-kode').textContent = item.kode;
   document.getElementById('modal-utama-wilayah').textContent = `${item.kec} ➔ ${item.desa} ➔ ${item.sls}`;
@@ -428,15 +514,12 @@ function openReplaceModal(utamaId) {
   document.getElementById('modal-utama-strata').textContent = `Strata ${item.strata}`;
   document.getElementById('modal-utama-kbli').textContent = `${item.kd_kbli} - ${item.kbli}`;
 
-  // Form controls
   document.getElementById('modal-input-alasan').value = STATE.modal.alasan;
   document.getElementById('modal-input-catatan').value = '';
   document.getElementById('toggle-req-subsektor').checked = true;
   document.getElementById('toggle-prio-strata').checked = true;
 
-  // Active Scope Tab
   setModalScope('sls');
-
   document.getElementById('modal-replace').classList.remove('hidden');
 }
 
@@ -448,7 +531,6 @@ function closeReplaceModal() {
 function setModalScope(scope) {
   STATE.modal.scope = scope;
 
-  // Update tabs visual
   const tabs = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
   tabs.forEach(t => {
     const btn = document.getElementById(`tab-scope-${t}`);
@@ -476,7 +558,6 @@ function renderCandidateList() {
   const requireSub = STATE.modal.requireSubsektor;
   const prioritizeStrata = STATE.modal.prioritizeStrata;
 
-  // Filter kandidat sesuai scope
   let candidates = allPengganti.filter(p => {
     if (requireSub && p.sub !== target.sub) return false;
 
@@ -487,13 +568,11 @@ function renderCandidateList() {
     } else if (scope === 'kecamatan') {
       return p.kd_kec === target.kd_kec;
     } else if (scope === 'lintas_kecamatan') {
-      // Semua kecamatan se-kabupaten Selayar
       return true;
     }
     return true;
   });
 
-  // Calculate score & sort
   candidates.forEach(c => {
     let score = 0;
     const isSameSLS = c.kd_kec === target.kd_kec && c.kd_desa === target.kd_desa && c.kd_sls === target.kd_sls;
@@ -515,13 +594,7 @@ function renderCandidateList() {
     c._isSameKec = isSameKec;
   });
 
-  if (prioritizeStrata) {
-    candidates.sort((a, b) => b._score - a._score);
-  } else {
-    candidates.sort((a, b) => b._score - a._score);
-  }
-
-  // Update badge count di tab
+  candidates.sort((a, b) => b._score - a._score);
   document.getElementById('candidate-count-header').textContent = `${candidates.length} kandidat ditemukan`;
 
   if (candidates.length === 0) {
@@ -531,7 +604,7 @@ function renderCandidateList() {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
         <p class="text-sm font-semibold text-slate-700">Tidak ada sampel pengganti dalam ruang lingkup ini.</p>
-        <p class="text-xs text-slate-500 mt-1">Coba beralih ke tab ruang lingkup lebih luas (misal: 1 Desa, 1 Kecamatan, atau Lintas Kecamatan), atau nonaktifkan syarat kesesuaian ketat.</p>
+        <p class="text-xs text-slate-500 mt-1">Coba beralih ke tab ruang lingkup lebih luas, atau nonaktifkan syarat kesesuaian ketat.</p>
       </div>
     `;
     return;
@@ -581,8 +654,8 @@ function renderCandidateList() {
   }).join('');
 }
 
-// Eksekusi Pergantian Sampel
-function confirmReplacement(penggantiId) {
+// Eksekusi Pergantian Sampel (Sync ke Cloud)
+async function confirmReplacement(penggantiId) {
   const target = STATE.modal.activeUtama;
   const pengganti = STATE.data.find(d => d.id === penggantiId);
   const alasan = document.getElementById('modal-input-alasan').value;
@@ -598,8 +671,7 @@ function confirmReplacement(penggantiId) {
 
   if (!confirm(confirmMsg)) return;
 
-  // Simpan record
-  STATE.replacements[target.id] = {
+  const record = {
     utamaId: target.id,
     utamaKode: target.kode,
     utamaNama: target.nama,
@@ -615,14 +687,24 @@ function confirmReplacement(penggantiId) {
     alasan: alasan,
     catatan: catatan,
     scope: STATE.modal.scope,
+    petugas: STATE.user ? STATE.user.username : 'bps7301',
     timestamp: new Date().toISOString()
   };
 
-  saveReplacements();
+  // Optimistic update
+  STATE.replacements[target.id] = record;
+  saveLocalReplacements();
   closeReplaceModal();
   renderDashboard();
 
-  showToast(`Sampel berhasil diganti dengan ${pengganti.nama}!`, 'success');
+  showToast(`Menyimpan pergantian ke cloud...`, 'info');
+  const cloudSuccess = await pushReplacementToCloud('save', { replacement: record });
+
+  if (cloudSuccess) {
+    showToast(`Berhasil! Sampel tersinkronisasi ke cloud untuk semua petugas.`, 'success');
+  } else {
+    showToast(`Tersimpan lokal. Akan diunggah saat koneksi cloud siap.`, 'info');
+  }
 }
 
 // Modal Detail & Undo
@@ -658,20 +740,23 @@ function closeDetailModal() {
   document.getElementById('modal-detail').classList.add('hidden');
 }
 
-function undoReplacement(utamaId) {
+async function undoReplacement(utamaId) {
   const rep = STATE.replacements[utamaId];
   if (!rep) return;
 
-  if (confirm(`Batalkan pergantian sampel ini? Sampel pengganti (${rep.penggantiNama}) akan dikembalikan ke status TERSEDIA.`)) {
+  if (confirm(`Batalkan pergantian sampel ini? Sampel pengganti (${rep.penggantiNama}) akan dikembalikan ke status TERSEDIA untuk semua petugas.`)) {
     delete STATE.replacements[utamaId];
-    saveReplacements();
+    saveLocalReplacements();
     closeDetailModal();
     renderDashboard();
-    showToast('Pergantian sampel telah dibatalkan.', 'info');
+
+    showToast('Membatalkan di cloud...', 'info');
+    await pushReplacementToCloud('delete', { utamaId });
+    showToast('Pergantian sampel telah dibatalkan di cloud & lokal.', 'info');
   }
 }
 
-// Ekspor Data
+// Ekspor Data CSV
 function exportBeritaAcaraCSV() {
   const reps = Object.values(STATE.replacements);
   if (reps.length === 0) {
@@ -682,6 +767,7 @@ function exportBeritaAcaraCSV() {
   const headers = [
     'No',
     'Waktu Pergantian',
+    'Petugas',
     'ID Utama',
     'Kode Identitas Utama',
     'Nama KK Utama',
@@ -702,6 +788,7 @@ function exportBeritaAcaraCSV() {
   const rows = reps.map((r, i) => [
     i + 1,
     `"${r.timestamp}"`,
+    `"${r.petugas || 'bps7301'}"`,
     `"${r.utamaId}"`,
     `"${r.utamaKode}"`,
     `"${r.utamaNama.replace(/"/g, '""')}"`,
@@ -825,11 +912,9 @@ function triggerDownload(content, filename) {
 
 // Setup Event Listeners
 function setupEventListeners() {
-  // Login form
   const loginForm = document.getElementById('form-login');
   if (loginForm) loginForm.addEventListener('submit', handleLogin);
 
-  // Search input with debounce
   let searchTimer;
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
@@ -843,7 +928,6 @@ function setupEventListeners() {
     });
   }
 
-  // Filter Kecamatan
   const kecSelect = document.getElementById('filter-kecamatan');
   if (kecSelect) {
     kecSelect.addEventListener('change', (e) => {
@@ -855,7 +939,6 @@ function setupEventListeners() {
     });
   }
 
-  // Filter Desa
   const desaSelect = document.getElementById('filter-desa');
   if (desaSelect) {
     desaSelect.addEventListener('change', (e) => {
@@ -865,7 +948,6 @@ function setupEventListeners() {
     });
   }
 
-  // Filter Subsektor
   const subSelect = document.getElementById('filter-subsektor');
   if (subSelect) {
     subSelect.addEventListener('change', (e) => {
@@ -875,7 +957,6 @@ function setupEventListeners() {
     });
   }
 
-  // Filter Status
   const statusSelect = document.getElementById('filter-status');
   if (statusSelect) {
     statusSelect.addEventListener('change', (e) => {
@@ -885,7 +966,6 @@ function setupEventListeners() {
     });
   }
 
-  // Reset Filters Button
   const btnResetFilter = document.getElementById('btn-reset-filter');
   if (btnResetFilter) {
     btnResetFilter.addEventListener('click', () => {
@@ -907,7 +987,6 @@ function setupEventListeners() {
     });
   }
 
-  // Toggle di modal rekomendasi
   const toggleSub = document.getElementById('toggle-req-subsektor');
   if (toggleSub) {
     toggleSub.addEventListener('change', (e) => {
