@@ -70,9 +70,8 @@ Sistem membedakan hak akses berdasarkan peran akun:
   - **Eksklusif Hak Download**: Ekspor Berita Acara Pergantian Sampel (CSV) & Ekspor DSRT Mutakhir (CSV).
 
 ### 2. Akun Petugas Lapangan (Input & Operasional)
-- **Username**: `bps7301`
-- **Password**: `selayar2026`
-- **PIN Cepat**: `7301`
+- **Username**: `petugas`
+- **Password**: `1234`
 - **Wewenang**:
   - Input & pembatalan pergantian sampel di lapangan.
   - Pencarian dan filter kandidat pengganti sesuai 4 ruang lingkup spasial.

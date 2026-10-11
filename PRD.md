@@ -126,8 +126,8 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
      - Password: `akunadmin`
      - Hak Akses: Penuh (Input/Undo pergantian sampel, Sinkronisasi Cloud, Reset Data Awal, dan **Eksklusif Hak Unduh Ekspor Berita Acara & DSRT Mutakhir**).
   2. **Petugas Lapangan (`petugas`)**:
-     - Username: `bps7301`
-     - Password: `selayar2026` (atau PIN cepat `7301`).
+     - Username: `petugas`
+     - Password: `1234`
      - Hak Akses: Input & Undo pergantian sampel lapangan, pencarian kandidat, sinkronisasi cloud. Akses unduh ekspor file CSV dibatasi dengan proteksi sistem.
 - **FR-1.3**: Sesi disimpan di `sessionStorage` sehingga sesi aktif terjaga selama tab terbuka dan otomatis keluar saat browser ditutup.
 - **FR-1.4**: Tombol Logout jelas di header untuk mengakhiri sesi seketika.
@@ -276,7 +276,7 @@ sampel_spdt/
 | ID | Skenario | Hasil yang Diharapkan |
 | :---: | :--- | :--- |
 | **AC-01** | Pengguna membuka situs tanpa login | Halaman menampilkan login form; dashboard terkunci. |
-| **AC-02** | Pengguna memasukkan username `bps7301` & password `selayar2026` | Login berhasil, redirect ke dashboard, metrik menampilkan data akurat (267 Utama). |
+| **AC-02** | Pengguna memasukkan username `petugas` & password `1234` | Login berhasil, redirect ke dashboard, metrik menampilkan data akurat (267 Utama). |
 | **AC-03** | Pengguna memilih sampel utama lalu membuka modal ganti | Tab "1 SLS" menampilkan kandidat dalam SLS yang sama dengan subsektor yang cocok. |
 | **AC-04** | Pengguna berpindah ke tab "1 Desa", "1 Kecamatan", atau "Lintas Kecamatan" | Daftar kandidat diperbarui secara instan sesuai batas spasial yang dipilih. |
 | **AC-05** | Pengguna memilih salah satu pengganti dan mengonfirmasi | Sampel utama berubah menjadi "DIGANTI"; pengganti terkunci dan tidak muncul lagi di pencarian lain. |

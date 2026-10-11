@@ -42,9 +42,8 @@ const USERS = [
     role: 'admin'        // Akses penuh: Ganti sampel, reset data, ekspor Berita Acara & DSRT Mutakhir
   },
   {
-    username: 'bps7301',
-    password: 'selayar2026',
-    pin: '7301',
+    username: 'petugas',
+    password: '1234',
     name: 'Petugas Lapangan',
     role: 'petugas'      // Akses terbatas: Ganti sampel, pencarian, detail/undo (tanpa unduh ekspor)
   }
@@ -778,7 +777,7 @@ async function confirmReplacement(penggantiId) {
     alasan: alasan,
     catatan: catatan,
     scope: STATE.modal.scope,
-    petugas: STATE.user ? STATE.user.username : 'bps7301',
+    petugas: STATE.user ? STATE.user.username : 'petugas',
     timestamp: new Date().toISOString()
   };
 
@@ -884,7 +883,7 @@ function exportBeritaAcaraCSV() {
   const rows = reps.map((r, i) => [
     i + 1,
     `"${r.timestamp}"`,
-    `"${r.petugas || 'bps7301'}"`,
+    `"${r.petugas || 'petugas'}"`,
     `"${r.utamaId}"`,
     `"${r.utamaKode}"`,
     `"${r.utamaNama.replace(/"/g, '""')}"`,
