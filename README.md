@@ -15,7 +15,6 @@ Untuk keamanan data operasional, aplikasi dilengkapi dengan Login Gate:
 - **Username**: `bps7301`
 - **Password**: `selayar2026`
 - **PIN Cepat**: `7301`
-- *Tersedia tombol "Isi Otomatis Kredensial Demo" pada layar login untuk akses cepat.*
 
 ---
 
