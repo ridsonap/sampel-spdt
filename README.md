@@ -56,10 +56,26 @@ Ikuti instruksi di layar, lalu hubungkan database KV lewat dashboard.
 
 ---
 
-## 🔐 Kredensial Login Petugas
+## 🔐 Kredensial Login & Hak Akses (Role-Based Access)
 
+Sistem membedakan hak akses berdasarkan peran akun:
+
+### 1. Akun Administrator (Hak Akses Penuh & Unduh Ekspor)
+- **Username**: `admin`
+- **Password**: `akunadmin`
+- **Wewenang**: 
+  - Pergantian & pembatalan (undo) sampel.
+  - Sinkronisasi cloud multi-user (Vercel KV / Redis).
+  - Reset database.
+  - **Eksklusif Hak Download**: Ekspor Berita Acara Pergantian Sampel (CSV) & Ekspor DSRT Mutakhir (CSV).
+
+### 2. Akun Petugas Lapangan (Input & Operasional)
 - **Username**: `bps7301`
 - **Password**: `selayar2026`
 - **PIN Cepat**: `7301`
+- **Wewenang**:
+  - Input & pembatalan pergantian sampel di lapangan.
+  - Pencarian dan filter kandidat pengganti sesuai 4 ruang lingkup spasial.
+  - *Catatan*: Fitur pengunduhan ekspor file CSV dikunci khusus untuk Administrator guna mencegah kebocoran/duplikasi pelaporan sepihak.
 
 *(Informasi kredensial ini tidak ditampilkan di layar login publik untuk keamanan data).*

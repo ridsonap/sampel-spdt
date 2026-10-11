@@ -33,11 +33,22 @@ const STORAGE_KEYS = {
   REPLACEMENTS: 'dsrt_7301_replacements_v1'
 };
 
-const CREDENTIALS = {
-  username: 'bps7301',
-  password: 'selayar2026',
-  pin: '7301'
-};
+// Manajemen Pengguna & Hak Akses (Role-Based Access Control)
+const USERS = [
+  {
+    username: 'admin',
+    password: 'akunadmin',
+    name: 'Administrator',
+    role: 'admin'        // Akses penuh: Ganti sampel, reset data, ekspor Berita Acara & DSRT Mutakhir
+  },
+  {
+    username: 'bps7301',
+    password: 'selayar2026',
+    pin: '7301',
+    name: 'Petugas Lapangan',
+    role: 'petugas'      // Akses terbatas: Ganti sampel, pencarian, detail/undo (tanpa unduh ekspor)
+  }
+];
 
 let syncInterval = null;
 
@@ -58,11 +69,23 @@ document.addEventListener('DOMContentLoaded', () => {
 function initAuth() {
   const savedUser = sessionStorage.getItem(STORAGE_KEYS.AUTH);
   if (savedUser) {
-    STATE.user = JSON.parse(savedUser);
-    showAppScreen();
-  } else {
-    showLoginScreen();
+    try {
+      const parsed = JSON.parse(savedUser);
+      const match = USERS.find(u => u.username === parsed.username);
+      if (match) {
+        parsed.role = match.role;
+        parsed.name = match.name;
+      } else {
+        parsed.role = parsed.role || 'petugas';
+      }
+      STATE.user = parsed;
+      showAppScreen();
+      return;
+    } catch (e) {
+      sessionStorage.removeItem(STORAGE_KEYS.AUTH);
+    }
   }
+  showLoginScreen();
 }
 
 function handleLogin(e) {
@@ -71,17 +94,23 @@ function handleLogin(e) {
   const passwordInput = document.getElementById('login-password').value.trim();
   const errorEl = document.getElementById('login-error');
 
-  if (
-    (usernameInput === CREDENTIALS.username && passwordInput === CREDENTIALS.password) ||
-    usernameInput === CREDENTIALS.pin ||
-    passwordInput === CREDENTIALS.pin
-  ) {
-    const user = { username: usernameInput || 'bps7301', loginTime: new Date().toISOString() };
+  const foundUser = USERS.find(u =>
+    (u.username === usernameInput && u.password === passwordInput) ||
+    (u.pin && (usernameInput === u.pin || passwordInput === u.pin))
+  );
+
+  if (foundUser) {
+    const user = {
+      username: foundUser.username,
+      name: foundUser.name,
+      role: foundUser.role,
+      loginTime: new Date().toISOString()
+    };
     STATE.user = user;
     sessionStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(user));
     errorEl.classList.add('hidden');
     showAppScreen();
-    showToast('Berhasil masuk ke sistem!', 'success');
+    showToast(`Selamat datang, ${foundUser.name}! (${foundUser.role.toUpperCase()})`, 'success');
   } else {
     errorEl.textContent = 'Kredensial tidak valid. Silakan periksa kembali.';
     errorEl.classList.remove('hidden');
@@ -104,11 +133,68 @@ function showLoginScreen() {
 function showAppScreen() {
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-app').classList.remove('hidden');
-  if (STATE.user && STATE.user.username) {
-    const el = document.getElementById('user-display');
-    if (el) el.textContent = STATE.user.username;
-  }
+  updateUserUI();
   renderDashboard();
+}
+
+function updateUserUI() {
+  if (!STATE.user) return;
+  const isAdmin = STATE.user.role === 'admin';
+
+  const userDisplay = document.getElementById('user-display');
+  const roleBadge = document.getElementById('user-role-badge');
+  const btnReset = document.getElementById('btn-reset-data');
+  const btnBA = document.getElementById('btn-export-ba');
+  const btnDSRT = document.getElementById('btn-export-dsrt');
+  const exportNotice = document.getElementById('export-admin-notice');
+
+  if (userDisplay) {
+    userDisplay.textContent = STATE.user.username;
+  }
+
+  if (roleBadge) {
+    if (isAdmin) {
+      roleBadge.textContent = 'ADMIN';
+      roleBadge.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300';
+    } else {
+      roleBadge.textContent = 'PETUGAS';
+      roleBadge.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200';
+    }
+  }
+
+  if (btnReset) {
+    if (isAdmin) {
+      btnReset.classList.remove('hidden');
+    } else {
+      btnReset.classList.add('hidden');
+    }
+  }
+
+  if (isAdmin) {
+    if (btnBA) {
+      btnBA.className = 'inline-flex items-center px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer';
+      btnBA.title = 'Unduh Berita Acara Pergantian Sampel (Format CSV)';
+    }
+    if (btnDSRT) {
+      btnDSRT.className = 'inline-flex items-center px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer';
+      btnDSRT.title = 'Unduh Daftar Sampel Mutakhir Lengkap (Format CSV)';
+    }
+    if (exportNotice) {
+      exportNotice.classList.add('hidden');
+    }
+  } else {
+    if (btnBA) {
+      btnBA.className = 'inline-flex items-center px-3 py-2 bg-slate-100 text-slate-400 hover:bg-slate-200 text-xs font-medium rounded-xl border border-slate-200 transition-all cursor-pointer';
+      btnBA.title = 'Akses Terbatas: Hanya Akun Admin yang dapat mengunduh Berita Acara';
+    }
+    if (btnDSRT) {
+      btnDSRT.className = 'inline-flex items-center px-3 py-2 bg-slate-100 text-slate-400 hover:bg-slate-200 text-xs font-medium rounded-xl border border-slate-200 transition-all cursor-pointer';
+      btnDSRT.title = 'Akses Terbatas: Hanya Akun Admin yang dapat mengunduh DSRT Mutakhir';
+    }
+    if (exportNotice) {
+      exportNotice.classList.remove('hidden');
+    }
+  }
 }
 
 // Data Handling & Local Storage
@@ -226,7 +312,12 @@ async function pushReplacementToCloud(action, payload) {
 }
 
 async function resetAllData() {
-  if (confirm('PERINGATAN MULTI-USER:\nApakah Anda yakin ingin MENGHAPUS SEMUA riwayat pergantian sampel di cloud dan lokal?')) {
+  if (!STATE.user || STATE.user.role !== 'admin') {
+    showToast('Akses dibatasi: Hanya akun Admin yang berhak me-reset seluruh data.', 'error');
+    return;
+  }
+
+  if (confirm('PERINGATAN ADMINISTRATOR:\nApakah Anda yakin ingin MENGHAPUS SEMUA riwayat pergantian sampel di cloud dan lokal?')) {
     STATE.replacements = {};
     saveLocalReplacements();
     renderDashboard();
@@ -756,8 +847,13 @@ async function undoReplacement(utamaId) {
   }
 }
 
-// Ekspor Data CSV
+// Ekspor Data CSV (Hanya Admin)
 function exportBeritaAcaraCSV() {
+  if (!STATE.user || STATE.user.role !== 'admin') {
+    showToast('Akses ditolak: Hanya akun Admin yang berhak mengunduh Berita Acara.', 'error');
+    return;
+  }
+
   const reps = Object.values(STATE.replacements);
   if (reps.length === 0) {
     alert('Belum ada sampel utama yang diganti.');
@@ -811,6 +907,11 @@ function exportBeritaAcaraCSV() {
 }
 
 function exportDSRTFullCSV() {
+  if (!STATE.user || STATE.user.role !== 'admin') {
+    showToast('Akses ditolak: Hanya akun Admin yang berhak mengunduh DSRT Mutakhir.', 'error');
+    return;
+  }
+
   const headers = [
     'No',
     'ID Assignment',

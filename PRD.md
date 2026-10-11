@@ -118,11 +118,17 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
 
 ## 5. PERSYARATAN FUNGSIONAL (FUNCTIONAL REQUIREMENTS)
 
-### FR-1: Autentikasi Pengguna & Keamanan Sesi
+### FR-1: Autentikasi Pengguna, Tingkatan Peran (RBAC) & Keamanan Sesi
 - **FR-1.1**: Tampilan Login Gate modern sebelum masuk ke modul utama.
-- **FR-1.2**: Kredensial default yang mudah diingat petugas:
-  - Username: `bps7301`
-  - Password: `selayar2026` (atau PIN cepat `7301`).
+- **FR-1.2**: Tingkatan Peran & Kredensial Pengguna (Role-Based Access Control):
+  1. **Administrator Sampling (`admin`)**:
+     - Username: `admin`
+     - Password: `akunadmin`
+     - Hak Akses: Penuh (Input/Undo pergantian sampel, Sinkronisasi Cloud, Reset Data Awal, dan **Eksklusif Hak Unduh Ekspor Berita Acara & DSRT Mutakhir**).
+  2. **Petugas Lapangan (`petugas`)**:
+     - Username: `bps7301`
+     - Password: `selayar2026` (atau PIN cepat `7301`).
+     - Hak Akses: Input & Undo pergantian sampel lapangan, pencarian kandidat, sinkronisasi cloud. Akses unduh ekspor file CSV dibatasi dengan proteksi sistem.
 - **FR-1.3**: Sesi disimpan di `sessionStorage` sehingga sesi aktif terjaga selama tab terbuka dan otomatis keluar saat browser ditutup.
 - **FR-1.4**: Tombol Logout jelas di header untuk mengakhiri sesi seketika.
 
@@ -184,10 +190,11 @@ Saat tombol "Ganti Sampel" diklik:
   - Ruang lingkup yang digunakan (1 SLS / 1 Desa / 1 Kecamatan / Lintas Kecamatan).
   - Tombol **"Batalkan Pergantian (Undo)"**: Mengembalikan sampel utama ke status AKTIF dan mengembalikan sampel cadangan ke pool TERSEDIA.
 
-### FR-8: Ekspor Laporan & Berita Acara
-Tersedia 2 opsi ekspor file CSV instan:
+### FR-8: Ekspor Laporan & Berita Acara (Eksklusif Administrator)
+Fitur pengunduhan laporan file dibatasi secara ketat hanya untuk pengguna ber-peran **Administrator (`admin`)**. Petugas non-admin yang mencoba mengunduh akan menerima penolakan otorisasi.
+Tersedia 2 format ekspor file CSV:
 1. **Ekspor Berita Acara Pergantian Sampel (BAPS)**:
-   - Hanya memuat baris sampel utama yang telah diganti beserta pasangan penggantinya, alasan, ruang lingkup, dan waktu penetapan.
+   - Hanya memuat baris sampel utama yang telah diganti beserta pasangan penggantinya, alasan, ruang lingkup, petugas, dan waktu penetapan.
 2. **Ekspor DSRT Termutakhir (Full Dataset)**:
    - Memuat 1.643 data lengkap dengan kolom tambahan: `Status Terkini`, `ID Pengganti`, `Kode Pengganti`, `Nama Pengganti`, `Alasan Penggantian`, `Ruang Lingkup`.
 
