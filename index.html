@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Pergantian Sampel DSRT 7301 - BPS Kepulauan Selayar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            bps: {
+              navy: '#0f2744',
+              blue: '#1b4d89',
+              light: '#f1f6fc',
+              accent: '#f59e0b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col selection:bg-blue-100 selection:text-blue-900">
+
+  <!-- ================= SCREEN 1: LOGIN GATE ================= -->
+  <div id="screen-login" class="flex-1 flex items-center justify-center p-4 sm:p-6 bg-gradient-to-br from-slate-900 via-bps-navy to-slate-900">
+    <div class="w-full max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 p-6 sm:p-8">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-600 mb-3 border border-blue-500/20 shadow-inner">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div class="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider text-blue-700 bg-blue-50 border border-blue-100 uppercase mb-2">
+          BPS Kab. Kepulauan Selayar
+        </div>
+        <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Sistem Pergantian Sampel</h1>
+        <p class="text-xs text-slate-500 mt-1">DSRT 7301 • Survei Pertanian Terintegrasi (Multi-User)</p>
+      </div>
+
+      <!-- Alert Error -->
+      <div id="login-error" class="hidden mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium"></div>
+
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5" for="login-username">Username / ID Petugas</label>
+          <div class="relative">
+            <input type="text" id="login-username" required placeholder="Masukkan ID petugas"
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all font-mono" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5" for="login-password">Kata Sandi / PIN</label>
+          <div class="relative">
+            <input type="password" id="login-password" required placeholder="••••••••"
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all" />
+          </div>
+        </div>
+
+        <button type="submit"
+          class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-500/25 transition-all">
+          Masuk ke Sistem
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= SCREEN 2: MAIN DASHBOARD ================= -->
+  <div id="screen-app" class="hidden flex-1 flex flex-col">
+    <!-- Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+            7301
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-bold text-slate-900 text-sm sm:text-base leading-tight">Pergantian Sampel DSRT</h1>
+              <span class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                Selayar
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-none mt-0.5">Badan Pusat Statistik Kab. Kepulauan Selayar</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Cloud Sync Badge & Button -->
+          <button id="btn-sync-cloud" onclick="syncWithCloud(true)" title="Sinkronkan dengan data terbaru dari petugas lain"
+            class="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700">
+            <svg id="sync-icon" class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span id="sync-status-text">Sinkron</span>
+          </button>
+
+          <button onclick="resetAllData()" title="Reset seluruh perubahan ke data awal"
+            class="hidden md:inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200">
+            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Reset Awal
+          </button>
+
+          <div class="hidden sm:flex items-center gap-1.5 pl-2 border-l border-slate-200">
+            <span id="cloud-indicator" class="w-2 h-2 rounded-full bg-emerald-500" title="Cloud Sync Aktif"></span>
+            <span class="text-xs font-medium text-slate-700" id="user-display">bps7301</span>
+          </div>
+
+          <button onclick="handleLogout()"
+            class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all">
+            <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Keluar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+      <!-- Metrics KPI Cards -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <!-- Metric 1: Total Utama -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+            <span>Total Sampel Utama</span>
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+          </div>
+          <div class="text-2xl sm:text-3xl font-bold text-slate-900 mt-2 font-mono" id="metric-total-utama">267</div>
+          <p class="text-[11px] text-slate-400 mt-1">11 Kecamatan se-Selayar</p>
+        </div>
+
+        <!-- Metric 2: Sampel Diganti -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+            <span>Sampel Diganti</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          </div>
+          <div class="text-2xl sm:text-3xl font-bold text-amber-600 mt-2 font-mono" id="metric-replaced-count">0 (0%)</div>
+          <p class="text-[11px] text-slate-400 mt-1">Menggunakan sampel cadangan</p>
+        </div>
+
+        <!-- Metric 3: Sampel Aktif -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+            <span>Sampel Tetap (Aktif)</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <div class="text-2xl sm:text-3xl font-bold text-emerald-600 mt-2 font-mono" id="metric-active-count">267</div>
+          <p class="text-[11px] text-slate-400 mt-1">Belum ada mutasi/penggantian</p>
+        </div>
+
+        <!-- Metric 4: Cadangan Tersedia -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+            <span>Sisa Cadangan Siap Pakai</span>
+            <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+          </div>
+          <div class="text-2xl sm:text-3xl font-bold text-indigo-600 mt-2 font-mono" id="metric-available-pengganti">1376 / 1376</div>
+          <p class="text-[11px] text-slate-400 mt-1">Pool sampel pengganti</p>
+        </div>
+      </section>
+
+      <!-- Action & Filter Section -->
+      <section class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-4">
+        <!-- Top row: Search + Export Buttons -->
+        <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <div class="relative flex-1 max-w-lg">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" id="search-input" placeholder="Cari Nama KK, Kode Identitas (e.g. 7301010-U-94), SLS, KBLI..."
+              class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all placeholder:text-slate-400" />
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="exportBeritaAcaraCSV()"
+              class="inline-flex items-center px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-95">
+              <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Ekspor Berita Acara (CSV)
+            </button>
+
+            <button onclick="exportDSRTFullCSV()"
+              class="inline-flex items-center px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-95">
+              <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Ekspor DSRT Mutakhir (CSV)
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Dropdowns -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-100">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-kecamatan">Kecamatan</label>
+            <select id="filter-kecamatan"
+              class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
+              <option value="">Semua Kecamatan</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-desa">Desa / Kelurahan</label>
+            <select id="filter-desa" disabled
+              class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50">
+              <option value="">Semua Desa</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-subsektor">Subsektor</label>
+            <select id="filter-subsektor"
+              class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
+              <option value="">Semua Subsektor</option>
+              <option value="HORTIKULTURA">Hortikultura</option>
+              <option value="PERKEBUNAN">Perkebunan</option>
+              <option value="PERIKANAN TANGKAP">Perikanan Tangkap</option>
+              <option value="PERIKANAN BUDIDAYA">Perikanan Budidaya</option>
+              <option value="PETERNAKAN">Peternakan</option>
+              <option value="KEHUTANAN">Kehutanan</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-status">Status Penggantian</label>
+            <div class="flex items-center gap-1.5">
+              <select id="filter-status"
+                class="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
+                <option value="ALL">Semua Status</option>
+                <option value="BELUM_DIGANTI">Aktif (Belum Diganti)</option>
+                <option value="SUDAH_DIGANTI">Sudah Diganti</option>
+              </select>
+              <button id="btn-reset-filter" title="Reset Filter"
+                class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Table Container -->
+      <section class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="px-4 py-3 bg-slate-50/50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="text-xs font-medium text-slate-600" id="table-count-info">
+            Memuat data sampel utama...
+          </div>
+          <div class="flex items-center gap-2" id="table-pagination">
+            <!-- Pagination buttons -->
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+                <th class="px-4 py-3 w-12">No</th>
+                <th class="px-4 py-3">Nama KK & Kode Identitas</th>
+                <th class="px-4 py-3">Wilayah (Kec / Desa / SLS)</th>
+                <th class="px-4 py-3">Subsektor & KBLI</th>
+                <th class="px-4 py-3 text-center w-20">Strata</th>
+                <th class="px-4 py-3 w-40">Status</th>
+                <th class="px-4 py-3 text-right w-36">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="sample-table-body" class="divide-y divide-slate-100 text-xs">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p>© 2026 Badan Pusat Statistik Kabupaten Kepulauan Selayar (7301)</p>
+        <p class="text-[11px] text-slate-400">Multi-User Cloud Sync • Vercel & Redis KV</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ================= MODAL 1: PERGANTIAN SAMPEL INTERAKTIF ================= -->
+  <div id="modal-replace" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Pergantian Sampel Utama</h2>
+          <p class="text-xs text-slate-500">Pilih unit sampel pengganti yang memenuhi kaidah metodologi</p>
+        </div>
+        <button onclick="closeReplaceModal()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-5 overflow-y-auto space-y-4 flex-1">
+        <!-- Target Sample Card -->
+        <div class="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-2">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-blue-900 uppercase tracking-wide">Sampel Utama yang Diganti:</span>
+              <span class="font-bold text-slate-900 text-sm" id="modal-utama-nama">-</span>
+            </div>
+            <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-white text-blue-800 border border-blue-200" id="modal-utama-kode">-</span>
+          </div>
+          <div class="text-xs text-slate-700 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            </svg>
+            <span id="modal-utama-wilayah" class="font-medium">-</span>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap pt-1 text-xs">
+            <span class="px-2 py-0.5 rounded bg-white font-medium text-slate-700 border border-blue-200" id="modal-utama-subsektor">-</span>
+            <span class="px-2 py-0.5 rounded bg-white font-medium text-slate-700 border border-blue-200" id="modal-utama-strata">-</span>
+            <span class="text-slate-500 truncate max-w-sm" id="modal-utama-kbli">-</span>
+          </div>
+        </div>
+
+        <!-- Alasan & Catatan -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1" for="modal-input-alasan">Alasan Pergantian (Wajib)</label>
+            <select id="modal-input-alasan"
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500">
+              <option value="Responden Menolak (Refusal)">1. Responden Menolak (Refusal)</option>
+              <option value="Pindah Domisili">2. Pindah Domisili ke Luar Wilayah</option>
+              <option value="Responden Meninggal Dunia">3. Responden Meninggal Dunia</option>
+              <option value="Bukan Usaha Pertanian (Alih Usaha/Tutup)">4. Bukan Usaha Pertanian / Alih Usaha / Tutup</option>
+              <option value="Tidak Dapat Ditemui (>3x Kunjungan)">5. Tidak Dapat Ditemui (>3x Kunjungan)</option>
+              <option value="Sampel Ganda / Anomali">6. Sampel Ganda / Anomali</option>
+              <option value="Lainnya">7. Alasan Lapangan Lainnya</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1" for="modal-input-catatan">Catatan / Keterangan Lapangan</label>
+            <input type="text" id="modal-input-catatan" placeholder="Contoh: Pindah ke Makassar tgl 2 Okt"
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500" />
+          </div>
+        </div>
+
+        <!-- 4 Ruang Lingkup Tabs -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-bold text-slate-800 uppercase tracking-wide">Pilih Ruang Lingkup Pengganti:</label>
+            <span id="candidate-count-header" class="text-xs font-semibold text-blue-600 font-mono">0 kandidat</span>
+          </div>
+
+          <div class="flex border-b border-slate-200 bg-slate-50 rounded-xl p-1 gap-1">
+            <button id="tab-scope-sls" onclick="setModalScope('sls')"
+              class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-slate-600 transition-all text-center">
+              1. Dalam 1 SLS
+            </button>
+            <button id="tab-scope-desa" onclick="setModalScope('desa')"
+              class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center">
+              2. 1 Desa
+            </button>
+            <button id="tab-scope-kecamatan" onclick="setModalScope('kecamatan')"
+              class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center">
+              3. 1 Kecamatan
+            </button>
+            <button id="tab-scope-lintas_kecamatan" onclick="setModalScope('lintas_kecamatan')"
+              class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center">
+              4. Lintas Kecamatan
+            </button>
+          </div>
+        </div>
+
+        <!-- Smart Filter Toggles -->
+        <div class="flex items-center gap-4 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex-wrap">
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="toggle-req-subsektor" checked
+              class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+            <span class="font-medium text-slate-700">Wajib Subsektor Sama</span>
+          </label>
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="toggle-prio-strata" checked
+              class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+            <span class="font-medium text-slate-700">Prioritaskan Strata Sama</span>
+          </label>
+        </div>
+
+        <!-- Candidate Cards Container -->
+        <div id="candidate-list-container" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+          <!-- Dynamically populated candidates -->
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end">
+        <button onclick="closeReplaceModal()"
+          class="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 2: DETAIL PERGANTIAN & ROLLBACK (UNDO) ================= -->
+  <div id="modal-detail" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200 bg-amber-50/50 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+          <h2 class="text-base font-bold text-slate-900">Detail Pergantian Sampel</h2>
+        </div>
+        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <!-- Pasangan Sampel -->
+        <div class="space-y-3">
+          <!-- Sampel Utama -->
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Sampel Utama Asal</div>
+            <div class="font-bold text-slate-900 text-sm" id="detail-utama-nama">-</div>
+            <div class="text-slate-500 font-mono text-[11px] mt-0.5" id="detail-utama-kode">-</div>
+            <div class="text-slate-600 mt-1" id="detail-utama-wilayah">-</div>
+            <div class="flex gap-2 mt-1 text-slate-500 font-medium">
+              <span id="detail-utama-sub">-</span> • <span id="detail-utama-strata">-</span>
+            </div>
+          </div>
+
+          <div class="flex justify-center text-slate-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </div>
+
+          <!-- Sampel Pengganti -->
+          <div class="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200">
+            <div class="text-[10px] uppercase font-bold text-emerald-700 mb-1">Sampel Pengganti Terpilih</div>
+            <div class="font-bold text-slate-900 text-sm" id="detail-pengganti-nama">-</div>
+            <div class="text-emerald-700 font-mono text-[11px] mt-0.5" id="detail-pengganti-kode">-</div>
+            <div class="text-slate-600 mt-1" id="detail-pengganti-wilayah">-</div>
+            <div class="flex gap-2 mt-1 text-slate-500 font-medium">
+              <span id="detail-pengganti-sub">-</span> • <span id="detail-pengganti-strata">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metadata Pergantian -->
+        <div class="p-3 rounded-xl bg-slate-50 space-y-1.5 border border-slate-200">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Alasan Pergantian:</span>
+            <span class="font-semibold text-slate-800 text-right" id="detail-alasan">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Ruang Lingkup:</span>
+            <span class="font-semibold text-blue-700 text-right" id="detail-scope">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Catatan Lapangan:</span>
+            <span class="font-medium text-slate-700 text-right" id="detail-catatan">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Waktu Penetapan:</span>
+            <span class="text-slate-600 font-mono text-right" id="detail-waktu">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <button id="btn-undo-replacement"
+          class="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all">
+          <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+          Batalkan Pergantian (Undo)
+        </button>
+
+        <button onclick="closeDetailModal()"
+          class="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-notification"
+    class="fixed bottom-5 right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 translate-y-20 opacity-0 pointer-events-none">
+    <span id="toast-message">-</span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
