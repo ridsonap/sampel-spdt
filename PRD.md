@@ -145,7 +145,7 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
   - Filter Kecamatan (11 Kecamatan: Benteng, Bontoharu, Bontomanai, Bontomatene, Bontosikuyu, Buki, Pasilambena, Pasimarannu, Pasimassunggu, Pasimassunggu Timur, Takabonerate).
   - Filter Desa (dinamis sesuai kecamatan yang dipilih).
   - Filter Subsektor (Hortikultura, Kehutanan, Perikanan Budidaya, Perikanan Tangkap, Perkebunan, Peternakan).
-  - Filter Status Pergantian (Semua / Belum Diganti / Sudah Diganti).
+  - Filter Status Pergantian (Semua / Belum Diganti / Sudah Diganti / Sudah Dicek Admin / Belum Dicek Admin).
 
 ### FR-4: Tabel Sampel Utama Interaktif
 - Menampilkan daftar unit sampel utama lengkap dengan:
@@ -154,9 +154,13 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
   - Wilayah (Kecamatan, Desa, SLS).
   - Subsektor, KBLI, & Strata.
   - Status Badge: `AKTIF` atau `DIGANTI`.
+  - **Cek Admin (Checklist Verifikasi)**:
+    - Checkbox interaktif untuk Administrator guna menandai verifikasi sampel yang telah diganti.
+    - Status verifikasi tersimpan permanen di cloud Redis/KV (`verified: true/false`, timestamp, verifikator).
+    - Mode *read-only* bagi akun petugas lapangan.
   - Tombol Aksi:
     - Jika Belum Diganti: Tombol **"Ganti Sampel"** (Warna Biru/Primer).
-    - Jika Sudah Diganti: Tombol **"Detail & Batalkan"** (Warna Oranye/Peringatan).
+    - Jika Sudah Diganti: Tombol **"Detail / Undo"** (Warna Oranye/Peringatan).
 
 ### FR-5: Modal Interaktif Pergantian Sampel
 Saat tombol "Ganti Sampel" diklik:
@@ -169,6 +173,9 @@ Saat tombol "Ganti Sampel" diklik:
   2. Tab `1 Desa`.
   3. Tab `1 Kecamatan`.
   4. Tab `Lintas Kecamatan`.
+- **Filter Wilayah Pengganti Dinamis (Kecamatan & Desa)**:
+  - Pada tab `1 Kecamatan`: Dropdown desa aktif untuk mempersempit kandidat ke desa tertentu dalam kecamatan tersebut.
+  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan (11 kecamatan) dan desa aktif untuk memilih wilayah pengganti secara spesifik.
 - **Pengaturan Kesesuaian**:
   - Checkbox toggle "Wajib Subsektor Sama" (default checked).
   - Checkbox toggle "Prioritaskan Strata Sama" (default checked).

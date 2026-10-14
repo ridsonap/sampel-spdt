@@ -79,6 +79,10 @@ export default async function handler(req, res) {
 
       if (action === 'save' && replacement && replacement.utamaId) {
         currentData[replacement.utamaId] = replacement;
+      } else if (action === 'verify' && utamaId && currentData[utamaId]) {
+        currentData[utamaId].verified = Boolean(body.verified);
+        currentData[utamaId].verifiedAt = body.verified ? new Date().toISOString() : null;
+        currentData[utamaId].verifiedBy = body.verified ? (body.petugas || 'admin') : null;
       } else if (action === 'delete' && utamaId) {
         delete currentData[utamaId];
       } else if (action === 'reset') {

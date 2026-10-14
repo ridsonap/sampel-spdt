@@ -21,6 +21,8 @@ const STATE = {
   modal: {
     activeUtama: null,
     scope: 'sls',      // sls, desa, kecamatan, lintas_kecamatan
+    filterKec: '',     // Filter kecamatan pilihan di modal
+    filterDesa: '',    // Filter desa pilihan di modal
     requireSubsektor: true,
     prioritizeStrata: true,
     alasan: 'Responden Menolak (Refusal)',
@@ -352,7 +354,10 @@ function renderDashboard() {
 function renderMetrics() {
   const utamaList = getUtamaList();
   const totalUtama = utamaList.length;
-  const replacedCount = Object.keys(STATE.replacements).length;
+  const reps = Object.values(STATE.replacements);
+  const replacedCount = reps.length;
+  const verifiedCount = reps.filter(r => r && r.verified).length;
+  const unverifiedCount = replacedCount - verifiedCount;
   const activeCount = totalUtama - replacedCount;
   const penggantiList = getPenggantiList();
   const usedPenggantiIds = getUsedPenggantiIds();
@@ -363,6 +368,15 @@ function renderMetrics() {
   document.getElementById('metric-replaced-count').textContent = `${replacedCount} (${replacePct}%)`;
   document.getElementById('metric-active-count').textContent = activeCount;
   document.getElementById('metric-available-pengganti').textContent = `${availablePengganti} / ${penggantiList.length}`;
+
+  const subtitleEl = document.getElementById('metric-verified-subtitle');
+  if (subtitleEl) {
+    if (replacedCount > 0) {
+      subtitleEl.innerHTML = `<span class="text-emerald-600 font-semibold">✓ ${verifiedCount} dicek</span> &bull; <span class="text-amber-600 font-semibold">${unverifiedCount} belum</span>`;
+    } else {
+      subtitleEl.textContent = 'Menggunakan sampel cadangan';
+    }
+  }
 }
 
 function renderKecamatanOptions() {
@@ -429,6 +443,10 @@ function getFilteredUtamaList() {
     list = list.filter(item => !STATE.replacements[item.id]);
   } else if (status === 'SUDAH_DIGANTI') {
     list = list.filter(item => !!STATE.replacements[item.id]);
+  } else if (status === 'SUDAH_DICEK') {
+    list = list.filter(item => !!STATE.replacements[item.id] && !!STATE.replacements[item.id].verified);
+  } else if (status === 'BELUM_DICEK') {
+    list = list.filter(item => !!STATE.replacements[item.id] && !STATE.replacements[item.id].verified);
   }
 
   return list;
@@ -452,7 +470,7 @@ function renderTable() {
   if (paginated.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="px-6 py-12 text-center text-slate-500">
+        <td colspan="8" class="px-6 py-12 text-center text-slate-500">
           <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -514,6 +532,23 @@ function renderTable() {
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
               AKTIF
             </span>
+          `}
+        </td>
+        <td class="px-3 py-3 text-center">
+          ${!isReplaced ? `
+            <span class="text-slate-300 font-mono text-xs">-</span>
+          ` : `
+            <div class="inline-flex flex-col items-center">
+              <label class="relative inline-flex items-center cursor-pointer select-none" title="${STATE.user && STATE.user.role === 'admin' ? (rep.verified ? 'Klik untuk membatalkan verifikasi' : 'Klik untuk menandai sudah dicek') : 'Hanya akun Admin yang dapat menandai verifikasi'}">
+                <input type="checkbox"
+                  ${rep.verified ? 'checked' : ''}
+                  ${STATE.user && STATE.user.role === 'admin' ? `onchange="toggleSampleVerification('${item.id}')"` : 'disabled'}
+                  class="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 focus:ring-1 ${STATE.user && STATE.user.role === 'admin' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}" />
+              </label>
+              <span class="text-[10px] font-semibold mt-0.5 ${rep.verified ? 'text-emerald-700' : 'text-slate-400'}">
+                ${rep.verified ? '✓ Dicek' : 'Belum'}
+              </span>
+            </div>
           `}
         </td>
         <td class="px-4 py-3 text-right">
@@ -592,6 +627,8 @@ function openReplaceModal(utamaId) {
 
   STATE.modal.activeUtama = item;
   STATE.modal.scope = 'sls';
+  STATE.modal.filterKec = '';
+  STATE.modal.filterDesa = '';
   STATE.modal.requireSubsektor = true;
   STATE.modal.prioritizeStrata = true;
   STATE.modal.alasan = 'Responden Menolak (Refusal)';
@@ -616,24 +653,102 @@ function openReplaceModal(utamaId) {
 function closeReplaceModal() {
   document.getElementById('modal-replace').classList.add('hidden');
   STATE.modal.activeUtama = null;
+  STATE.modal.filterKec = '';
+  STATE.modal.filterDesa = '';
 }
 
 function setModalScope(scope) {
   STATE.modal.scope = scope;
+  STATE.modal.filterKec = '';
+  STATE.modal.filterDesa = '';
 
   const tabs = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
   tabs.forEach(t => {
     const btn = document.getElementById(`tab-scope-${t}`);
     if (btn) {
       if (t === scope) {
-        btn.className = 'flex-1 py-2 text-xs font-semibold text-blue-700 border-b-2 border-blue-600 bg-blue-50/50 transition-all';
+        btn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-xs transition-all text-center';
       } else {
-        btn.className = 'flex-1 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent transition-all';
+        btn.className = 'flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-all text-center';
       }
     }
   });
 
+  updateModalLocationFilterUI();
   renderCandidateList();
+}
+
+function updateModalLocationFilterUI() {
+  const container = document.getElementById('modal-location-filters');
+  const kecWrapper = document.getElementById('wrapper-modal-filter-kec');
+  const kecSelect = document.getElementById('modal-filter-kecamatan');
+  const desaWrapper = document.getElementById('wrapper-modal-filter-desa');
+  const desaSelect = document.getElementById('modal-filter-desa');
+  const hintSpan = document.getElementById('modal-filter-hint');
+
+  if (!container || !STATE.modal.activeUtama) return;
+
+  const target = STATE.modal.activeUtama;
+  const scope = STATE.modal.scope;
+
+  if (scope === 'sls' || scope === 'desa') {
+    container.classList.add('hidden');
+    return;
+  }
+
+  container.classList.remove('hidden');
+
+  if (scope === 'kecamatan') {
+    kecWrapper.classList.add('hidden');
+    desaWrapper.classList.remove('hidden');
+    if (hintSpan) hintSpan.textContent = `Wilayah: Kecamatan ${target.kec}`;
+
+    const desas = [...new Set(STATE.data.filter(d => d.kec === target.kec && d.status === 'PENGGANTI').map(d => d.desa))].sort();
+    desaSelect.innerHTML = `<option value="">Semua Desa di ${escapeHtml(target.kec)} (${desas.length})</option>`;
+    desas.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      if (STATE.modal.filterDesa === d) opt.selected = true;
+      desaSelect.appendChild(opt);
+    });
+  } else if (scope === 'lintas_kecamatan') {
+    kecWrapper.classList.remove('hidden');
+    desaWrapper.classList.remove('hidden');
+    if (hintSpan) hintSpan.textContent = 'Pilih kecamatan & desa tujuan (opsional)';
+
+    const kecs = [...new Set(STATE.data.map(d => d.kec))].sort();
+    kecSelect.innerHTML = '<option value="">Semua Kecamatan (11)</option>';
+    kecs.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = k;
+      if (STATE.modal.filterKec === k) opt.selected = true;
+      kecSelect.appendChild(opt);
+    });
+
+    updateModalDesaOptions(STATE.modal.filterKec);
+  }
+}
+
+function updateModalDesaOptions(selectedKec) {
+  const desaSelect = document.getElementById('modal-filter-desa');
+  if (!desaSelect) return;
+
+  if (!selectedKec) {
+    desaSelect.innerHTML = '<option value="">Semua Desa (Pilih kecamatan dulu)</option>';
+    return;
+  }
+
+  const desas = [...new Set(STATE.data.filter(d => d.kec === selectedKec && d.status === 'PENGGANTI').map(d => d.desa))].sort();
+  desaSelect.innerHTML = `<option value="">Semua Desa di ${escapeHtml(selectedKec)} (${desas.length})</option>`;
+  desas.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    if (STATE.modal.filterDesa === d) opt.selected = true;
+    desaSelect.appendChild(opt);
+  });
 }
 
 function renderCandidateList() {
@@ -656,8 +771,12 @@ function renderCandidateList() {
     } else if (scope === 'desa') {
       return p.kd_kec === target.kd_kec && p.kd_desa === target.kd_desa;
     } else if (scope === 'kecamatan') {
-      return p.kd_kec === target.kd_kec;
+      if (p.kd_kec !== target.kd_kec) return false;
+      if (STATE.modal.filterDesa && p.desa !== STATE.modal.filterDesa) return false;
+      return true;
     } else if (scope === 'lintas_kecamatan') {
+      if (STATE.modal.filterKec && p.kec !== STATE.modal.filterKec) return false;
+      if (STATE.modal.filterDesa && p.desa !== STATE.modal.filterDesa) return false;
       return true;
     }
     return true;
@@ -778,7 +897,10 @@ async function confirmReplacement(penggantiId) {
     catatan: catatan,
     scope: STATE.modal.scope,
     petugas: STATE.user ? STATE.user.username : 'petugas',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    verified: false,
+    verifiedAt: null,
+    verifiedBy: null
   };
 
   // Optimistic update
@@ -820,10 +942,68 @@ function openDetailModal(utamaId) {
   document.getElementById('detail-catatan').textContent = rep.catatan || '-';
   document.getElementById('detail-waktu').textContent = new Date(rep.timestamp).toLocaleString('id-ID');
 
+  const verifiedBadge = document.getElementById('detail-verified-badge');
+  const verifiedInfo = document.getElementById('detail-verified-info');
+  const btnToggleVerify = document.getElementById('btn-toggle-verify-modal');
+
+  if (rep.verified) {
+    if (verifiedBadge) verifiedBadge.innerHTML = '<span class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">✓ Sudah Dicek Admin</span>';
+    if (verifiedInfo) verifiedInfo.textContent = rep.verifiedAt ? `Diverifikasi oleh ${rep.verifiedBy || 'Admin'} (${new Date(rep.verifiedAt).toLocaleString('id-ID')})` : 'Telah diverifikasi Admin';
+  } else {
+    if (verifiedBadge) verifiedBadge.innerHTML = '<span class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">⏳ Belum Dicek Admin</span>';
+    if (verifiedInfo) verifiedInfo.textContent = 'Menunggu pengecekan/verifikasi oleh Admin';
+  }
+
+  if (btnToggleVerify) {
+    if (STATE.user && STATE.user.role === 'admin') {
+      btnToggleVerify.classList.remove('hidden');
+      if (rep.verified) {
+        btnToggleVerify.className = 'inline-flex items-center px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all';
+        btnToggleVerify.innerHTML = 'Batalkan Verifikasi';
+      } else {
+        btnToggleVerify.className = 'inline-flex items-center px-3 py-2 text-xs font-semibold rounded-xl border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-xs';
+        btnToggleVerify.innerHTML = '✓ Tandai Sudah Dicek';
+      }
+      btnToggleVerify.onclick = async () => {
+        await toggleSampleVerification(utamaId);
+        openDetailModal(utamaId);
+      };
+    } else {
+      btnToggleVerify.classList.add('hidden');
+    }
+  }
+
   const btnUndo = document.getElementById('btn-undo-replacement');
   btnUndo.onclick = () => undoReplacement(utamaId);
 
   document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+async function toggleSampleVerification(utamaId) {
+  if (!STATE.user || STATE.user.role !== 'admin') {
+    showToast('Akses ditolak: Hanya Administrator yang berhak menandai verifikasi.', 'error');
+    renderTable();
+    return;
+  }
+
+  const rep = STATE.replacements[utamaId];
+  if (!rep) return;
+
+  const newStatus = !rep.verified;
+  rep.verified = newStatus;
+  rep.verifiedAt = newStatus ? new Date().toISOString() : null;
+  rep.verifiedBy = newStatus ? (STATE.user ? STATE.user.name : 'Administrator') : null;
+
+  saveLocalReplacements();
+  renderDashboard();
+
+  showToast(newStatus ? 'Sampel berhasil ditandai telah dicek admin ✓' : 'Tanda verifikasi admin dibatalkan', 'info');
+
+  await pushReplacementToCloud('verify', {
+    utamaId: utamaId,
+    verified: newStatus,
+    petugas: STATE.user ? STATE.user.name : 'Administrator'
+  });
 }
 
 function closeDetailModal() {
@@ -863,6 +1043,9 @@ function exportBeritaAcaraCSV() {
     'No',
     'Waktu Pergantian',
     'Petugas',
+    'Status Cek Admin',
+    'Waktu Cek Admin',
+    'Verifikator Admin',
     'ID Utama',
     'Kode Identitas Utama',
     'Nama KK Utama',
@@ -884,6 +1067,9 @@ function exportBeritaAcaraCSV() {
     i + 1,
     `"${r.timestamp}"`,
     `"${r.petugas || 'petugas'}"`,
+    `"${r.verified ? 'SUDAH DICEK' : 'BELUM DICEK'}"`,
+    `"${r.verifiedAt || ''}"`,
+    `"${r.verifiedBy || ''}"`,
     `"${r.utamaId}"`,
     `"${r.utamaKode}"`,
     `"${r.utamaNama.replace(/"/g, '""')}"`,
@@ -917,6 +1103,7 @@ function exportDSRTFullCSV() {
     'Kode Identitas',
     'Status Asal',
     'Status Terkini',
+    'Status Cek Admin',
     'Nama KK',
     'Kecamatan',
     'Desa',
@@ -940,6 +1127,7 @@ function exportDSRTFullCSV() {
 
   const rows = STATE.data.map((item, idx) => {
     let statusTerkini = item.status;
+    let statusCekAdmin = '-';
     let pasanganId = '';
     let pasanganKode = '';
     let pasanganNama = '';
@@ -950,6 +1138,7 @@ function exportDSRTFullCSV() {
       const rep = STATE.replacements[item.id];
       if (rep) {
         statusTerkini = 'DIGANTI';
+        statusCekAdmin = rep.verified ? 'SUDAH DICEK' : 'BELUM DICEK';
         pasanganId = rep.penggantiId;
         pasanganKode = rep.penggantiKode;
         pasanganNama = rep.penggantiNama;
@@ -962,6 +1151,7 @@ function exportDSRTFullCSV() {
       const rep = usedPenggantiMap[item.id];
       if (rep) {
         statusTerkini = 'PENGGANTI (TERPAKAI)';
+        statusCekAdmin = rep.verified ? 'SUDAH DICEK' : 'BELUM DICEK';
         pasanganId = rep.utamaId;
         pasanganKode = rep.utamaKode;
         pasanganNama = rep.utamaNama;
@@ -978,6 +1168,7 @@ function exportDSRTFullCSV() {
       `"${item.kode}"`,
       `"${item.status}"`,
       `"${statusTerkini}"`,
+      `"${statusCekAdmin}"`,
       `"${item.nama.replace(/"/g, '""')}"`,
       `"${item.kec}"`,
       `"${item.desa}"`,
@@ -1099,6 +1290,24 @@ function setupEventListeners() {
   if (toggleStrata) {
     toggleStrata.addEventListener('change', (e) => {
       STATE.modal.prioritizeStrata = e.target.checked;
+      renderCandidateList();
+    });
+  }
+
+  const modalKecSelect = document.getElementById('modal-filter-kecamatan');
+  if (modalKecSelect) {
+    modalKecSelect.addEventListener('change', (e) => {
+      STATE.modal.filterKec = e.target.value;
+      STATE.modal.filterDesa = '';
+      updateModalDesaOptions(e.target.value);
+      renderCandidateList();
+    });
+  }
+
+  const modalDesaSelect = document.getElementById('modal-filter-desa');
+  if (modalDesaSelect) {
+    modalDesaSelect.addEventListener('change', (e) => {
+      STATE.modal.filterDesa = e.target.value;
       renderCandidateList();
     });
   }
