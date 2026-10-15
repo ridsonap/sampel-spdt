@@ -189,21 +189,30 @@ Saat tombol "Ganti Sampel" diklik:
 - Sampel pengganti yang telah dipilih langsung berstatus `TERPAKAI`.
 - Sampel berstatus `TERPAKAI` otomatis dihilangkan dari daftar rekomendasi untuk sampel utama mana pun.
 
-### FR-7: Manajemen Riwayat, Detail Pengganti & Rollback (Undo)
+### FR-7: Manajemen Riwayat, Detail Pengganti, Ganti Ulang (Tidak Eligible) & Rollback (Undo)
 - Klik pada sampel berstatus `DIGANTI` akan membuka modal detail yang menampilkan:
   - Data Sampel Utama asal.
-  - Data Sampel Pengganti terpilih.
+  - Data Sampel Pengganti terpilih (beserta label tingkat urutan pengganti, misal `Pengganti Ke-2`).
   - Alasan pergantian dan waktu transaksi pergantian.
   - Ruang lingkup yang digunakan (1 SLS / 1 Desa / 1 Kecamatan / Lintas Kecamatan).
+  - Status Cek Admin dan tombol verifikasi bagi Administrator.
+  - **Riwayat Pengganti Gugur di Lapangan**: Daftar seluruh sampel pengganti sebelumnya yang dinyatakan tidak eligible di lapangan ($P_1, P_2, \dots$), lengkap dengan alasan gugur, catatan, waktu, dan petugas.
+  - Tombol **"Ganti Ulang (Tidak Eligible)"**:
+    - Digunakan saat sampel pengganti terpilih di lapangan ternyata tidak eligible (menolak, pindah domisili, meninggal dunia, alih usaha, dll.).
+    - Membuka modal konfirmasi diskualifikasi untuk mencatat alasan gugur dan catatan lapangan.
+    - Sampel yang digugurkan **dikunci permanen** dari pool cadangan (tidak bisa dipilih oleh petugas mana pun).
+    - Membuka kembali modal pemilihan pengganti dengan banner notifikasi tingkat pergantian baru ($P_{k+1}$).
   - Tombol **"Batalkan Pergantian (Undo)"**: Mengembalikan sampel utama ke status AKTIF dan mengembalikan sampel cadangan ke pool TERSEDIA.
 
-### FR-8: Ekspor Laporan & Berita Acara (Eksklusif Administrator)
+### FR-8: Ekspor Laporan & Berita Acara Excel .xlsx (Eksklusif Administrator)
 Fitur pengunduhan laporan file dibatasi secara ketat hanya untuk pengguna ber-peran **Administrator (`admin`)**. Petugas non-admin yang mencoba mengunduh akan menerima penolakan otorisasi.
-Tersedia 2 format ekspor file CSV:
-1. **Ekspor Berita Acara Pergantian Sampel (BAPS)**:
-   - Hanya memuat baris sampel utama yang telah diganti beserta pasangan penggantinya, alasan, ruang lingkup, petugas, dan waktu penetapan.
-2. **Ekspor DSRT Termutakhir (Full Dataset)**:
-   - Memuat 1.643 data lengkap dengan kolom tambahan: `Status Terkini`, `ID Pengganti`, `Kode Pengganti`, `Nama Pengganti`, `Alasan Penggantian`, `Ruang Lingkup`.
+Tersedia 2 format ekspor berkas Excel asli (`.xlsx`) via pustaka SheetJS:
+1. **Ekspor Berita Acara Pergantian Sampel (BAPS) (.xlsx)**:
+   - Memuat riwayat pergantian lengkap per baris (baik sampel pengganti yang telah gugur maupun pengganti aktif).
+   - Kolom meliputi: No, Waktu Penetapan, Petugas Lapangan, Status Cek Admin, Waktu Cek Admin, Verifikator Admin, Tingkat Pergantian (`Ke-1 (Gugur)`, `Ke-2 (Aktif)`), Status Pengganti (`GUGUR DI LAPANGAN` / `PENGGANTI AKTIF`), ID Utama, Kode Identitas Utama, Nama KK Utama, Subsektor Utama, Strata Utama, Wilayah Utama, ID Pengganti, Kode Identitas Pengganti, Nama KK Pengganti, Subsektor Pengganti, Strata Pengganti, Wilayah Pengganti, Ruang Lingkup, Alasan Pergantian / Gugur, Catatan Lapangan.
+   - Dilengkapi lebar kolom (*column width*) yang telah diatur rapi untuk siap cetak/arsip.
+2. **Ekspor DSRT Termutakhir (Full Dataset) (.xlsx)**:
+   - Memuat 1.643 data lengkap dengan kolom tambahan: `Status Terkini` (`AKTIF (TETAP)`, `DIGANTI`, `PENGGANTI (TERSEDIA)`, `PENGGANTI (AKTIF)`, `PENGGANTI (GUGUR DI LAPANGAN)`), `Tingkat Pergantian`, `Status Cek Admin`, `ID Pasangan`, `Kode Pasangan`, `Nama Pasangan`, `Alasan Pergantian`, `Ruang Lingkup`.
 
 ### FR-9: Persistensi Data Lokal (Offline Resilience)
 - Semua transaksi pergantian tersimpan di `localStorage` peramban.

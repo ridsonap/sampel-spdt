@@ -20,6 +20,8 @@ const STATE = {
   },
   modal: {
     activeUtama: null,
+    activeDisqualifyUtamaId: null,
+    reReplaceContext: null, // { utamaId, disqualifiedEntry }
     scope: 'sls',      // sls, desa, kecamatan, lintas_kecamatan
     filterKec: '',     // Filter kecamatan pilihan di modal
     filterDesa: '',    // Filter desa pilihan di modal
@@ -333,7 +335,15 @@ function getUsedPenggantiIds() {
   const ids = new Set();
   Object.values(STATE.replacements).forEach(r => {
     if (r && r.penggantiId) ids.add(r.penggantiId);
+    if (r && Array.isArray(r.history)) {
+      r.history.forEach(h => {
+        if (h && h.penggantiId) ids.add(h.penggantiId);
+      });
+    }
   });
+  if (STATE.modal.reReplaceContext && STATE.modal.reReplaceContext.disqualifiedEntry) {
+    ids.add(STATE.modal.reReplaceContext.disqualifiedEntry.penggantiId);
+  }
   return ids;
 }
 
@@ -518,10 +528,17 @@ function renderTable() {
         <td class="px-4 py-3">
           ${isReplaced ? `
             <div>
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span>
-                DIGANTI
-              </span>
+              <div class="flex items-center gap-1 flex-wrap">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span>
+                  DIGANTI ${rep.history && rep.history.length > 0 ? `(Ke-${rep.history.length + 1})` : ''}
+                </span>
+                ${rep.history && rep.history.length > 0 ? `
+                  <span class="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200" title="${rep.history.length} sampel pengganti sebelumnya gugur di lapangan">
+                    ${rep.history.length} Gugur
+                  </span>
+                ` : ''}
+              </div>
               <div class="text-[11px] text-slate-600 font-medium mt-1 truncate max-w-[170px]" title="${escapeHtml(rep.penggantiNama)}">
                 ➔ ${escapeHtml(rep.penggantiNama)}
               </div>
@@ -646,6 +663,21 @@ function openReplaceModal(utamaId) {
   document.getElementById('toggle-req-subsektor').checked = true;
   document.getElementById('toggle-prio-strata').checked = true;
 
+  // Cek apakah ini mode ganti ulang (setelah pengganti sebelumnya gugur)
+  const noticeEl = document.getElementById('modal-replace-re-replace-notice');
+  if (noticeEl) {
+    if (STATE.modal.reReplaceContext && STATE.modal.reReplaceContext.utamaId === utamaId) {
+      const disq = STATE.modal.reReplaceContext.disqualifiedEntry;
+      noticeEl.classList.remove('hidden');
+      const titleEl = document.getElementById('re-replace-notice-title');
+      const descEl = document.getElementById('re-replace-notice-desc');
+      if (titleEl) titleEl.textContent = `Pergantian Ulang: Pengganti Ke-${disq.urutan + 1}`;
+      if (descEl) descEl.textContent = `Pengganti Ke-${disq.urutan} (${disq.penggantiNama}) dinyatakan gugur di lapangan (${disq.alasanGugur}). Silakan pilih kandidat pengganti baru.`;
+    } else {
+      noticeEl.classList.add('hidden');
+    }
+  }
+
   setModalScope('sls');
   document.getElementById('modal-replace').classList.remove('hidden');
 }
@@ -655,6 +687,7 @@ function closeReplaceModal() {
   STATE.modal.activeUtama = null;
   STATE.modal.filterKec = '';
   STATE.modal.filterDesa = '';
+  STATE.modal.reReplaceContext = null;
 }
 
 function setModalScope(scope) {
@@ -872,9 +905,20 @@ async function confirmReplacement(penggantiId) {
 
   if (!target || !pengganti) return;
 
+  const existing = STATE.replacements[target.id];
+  let history = [];
+  if (STATE.modal.reReplaceContext && STATE.modal.reReplaceContext.utamaId === target.id) {
+    history = [...(existing && Array.isArray(existing.history) ? existing.history : []), STATE.modal.reReplaceContext.disqualifiedEntry];
+  } else if (existing && Array.isArray(existing.history)) {
+    history = existing.history;
+  }
+
+  const stageNum = history.length + 1;
+  const stageLabel = stageNum > 1 ? ` (Pengganti Ke-${stageNum})` : '';
+
   const confirmMsg = `Ganti Sampel Utama:\n` +
     `• ${target.nama} (${target.kode})\n` +
-    `dengan Sampel Pengganti:\n` +
+    `dengan Sampel Pengganti${stageLabel}:\n` +
     `• ${pengganti.nama} (${pengganti.kode})\n` +
     `Alasan: ${alasan}\nRuang Lingkup: ${formatScopeLabel(STATE.modal.scope)}\n\nLanjutkan?`;
 
@@ -900,8 +944,11 @@ async function confirmReplacement(penggantiId) {
     timestamp: new Date().toISOString(),
     verified: false,
     verifiedAt: null,
-    verifiedBy: null
+    verifiedBy: null,
+    history: history
   };
+
+  STATE.modal.reReplaceContext = null;
 
   // Optimistic update
   STATE.replacements[target.id] = record;
@@ -931,11 +978,45 @@ function openDetailModal(utamaId) {
   document.getElementById('detail-utama-sub').textContent = item.sub;
   document.getElementById('detail-utama-strata').textContent = `Strata ${item.strata}`;
 
+  const stage = (rep.history ? rep.history.length : 0) + 1;
+  const headingEl = document.getElementById('detail-pengganti-heading');
+  if (headingEl) {
+    headingEl.textContent = rep.history && rep.history.length > 0 ? `Sampel Pengganti Terpilih (Ke-${stage})` : 'Sampel Pengganti Terpilih';
+  }
+
   document.getElementById('detail-pengganti-nama').textContent = rep.penggantiNama;
   document.getElementById('detail-pengganti-kode').textContent = rep.penggantiKode;
   document.getElementById('detail-pengganti-wilayah').textContent = rep.penggantiWilayah;
   document.getElementById('detail-pengganti-sub').textContent = rep.penggantiSub;
   document.getElementById('detail-pengganti-strata').textContent = `Strata ${rep.penggantiStrata}`;
+
+  // Riwayat Pengganti yang Gugur di Lapangan
+  const histContainer = document.getElementById('detail-history-container');
+  const histList = document.getElementById('detail-history-list');
+  const histCount = document.getElementById('detail-history-count');
+
+  if (rep.history && rep.history.length > 0) {
+    histContainer.classList.remove('hidden');
+    histCount.textContent = `${rep.history.length} gugur`;
+    histList.innerHTML = rep.history.map((h, i) => `
+      <div class="p-2.5 rounded-lg bg-white/95 border border-rose-200 text-xs space-y-1">
+        <div class="flex items-center justify-between flex-wrap gap-1">
+          <span class="font-bold text-slate-900">Pengganti Ke-${h.urutan || (i + 1)}: ${escapeHtml(h.penggantiNama)}</span>
+          <span class="text-[10px] font-mono bg-rose-100 text-rose-800 px-1.5 py-0.2 rounded border border-rose-200 font-semibold">GUGUR DI LAPANGAN</span>
+        </div>
+        <div class="text-[11px] text-slate-600 font-mono">${escapeHtml(h.penggantiKode)} • ${escapeHtml(h.penggantiWilayah)}</div>
+        <div class="text-[11px] text-rose-700 font-medium pt-0.5">
+          Alasan Gugur: <span class="font-bold">${escapeHtml(h.alasanGugur || '-')}</span>
+        </div>
+        ${h.catatanGugur ? `<div class="text-[10px] text-slate-600 italic bg-slate-50 p-1.5 rounded">"${escapeHtml(h.catatanGugur)}"</div>` : ''}
+        <div class="text-[10px] text-slate-400 text-right pt-0.5">
+          Digugurkan oleh ${escapeHtml(h.petugas || 'petugas')} pada ${new Date(h.waktuGugur).toLocaleString('id-ID')}
+        </div>
+      </div>
+    `).join('');
+  } else {
+    histContainer.classList.add('hidden');
+  }
 
   document.getElementById('detail-alasan').textContent = rep.alasan;
   document.getElementById('detail-scope').textContent = formatScopeLabel(rep.scope);
@@ -976,7 +1057,68 @@ function openDetailModal(utamaId) {
   const btnUndo = document.getElementById('btn-undo-replacement');
   btnUndo.onclick = () => undoReplacement(utamaId);
 
+  const btnReReplace = document.getElementById('btn-re-replace');
+  if (btnReReplace) {
+    btnReReplace.onclick = () => openDisqualifyModal(utamaId);
+  }
+
   document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+// Modal Gugurkan Pengganti Tidak Eligible
+function openDisqualifyModal(utamaId) {
+  const item = STATE.data.find(d => d.id === utamaId);
+  const rep = STATE.replacements[utamaId];
+  if (!item || !rep) return;
+
+  closeDetailModal();
+
+  document.getElementById('disqualify-target-nama').textContent = rep.penggantiNama;
+  document.getElementById('disqualify-target-kode').textContent = rep.penggantiKode;
+  document.getElementById('disqualify-target-wilayah').textContent = rep.penggantiWilayah;
+  document.getElementById('disqualify-input-alasan').value = 'Responden Menolak (Refusal)';
+  document.getElementById('disqualify-input-catatan').value = '';
+
+  STATE.modal.activeDisqualifyUtamaId = utamaId;
+  document.getElementById('modal-disqualify').classList.remove('hidden');
+}
+
+function closeDisqualifyModal() {
+  document.getElementById('modal-disqualify').classList.add('hidden');
+  const utamaId = STATE.modal.activeDisqualifyUtamaId;
+  STATE.modal.activeDisqualifyUtamaId = null;
+  if (utamaId) {
+    openDetailModal(utamaId);
+  }
+}
+
+function confirmDisqualifyAndPickNew() {
+  const utamaId = STATE.modal.activeDisqualifyUtamaId;
+  const rep = STATE.replacements[utamaId];
+  if (!rep) return;
+
+  const alasanGugur = document.getElementById('disqualify-input-alasan').value;
+  const catatanGugur = document.getElementById('disqualify-input-catatan').value.trim();
+
+  const disqualifiedEntry = {
+    urutan: (rep.history ? rep.history.length : 0) + 1,
+    penggantiId: rep.penggantiId,
+    penggantiKode: rep.penggantiKode,
+    penggantiNama: rep.penggantiNama,
+    penggantiWilayah: rep.penggantiWilayah,
+    penggantiSub: rep.penggantiSub,
+    penggantiStrata: rep.penggantiStrata,
+    alasanGugur: alasanGugur,
+    catatanGugur: catatanGugur,
+    waktuGugur: new Date().toISOString(),
+    petugas: STATE.user ? STATE.user.username : 'petugas'
+  };
+
+  STATE.modal.reReplaceContext = { utamaId, disqualifiedEntry };
+  document.getElementById('modal-disqualify').classList.add('hidden');
+  STATE.modal.activeDisqualifyUtamaId = null;
+
+  openReplaceModal(utamaId);
 }
 
 async function toggleSampleVerification(utamaId) {
@@ -1026,8 +1168,8 @@ async function undoReplacement(utamaId) {
   }
 }
 
-// Ekspor Data CSV (Hanya Admin)
-function exportBeritaAcaraCSV() {
+// Ekspor Data Excel (.xlsx) - Eksklusif Akun Admin
+function exportBeritaAcaraExcel() {
   if (!STATE.user || STATE.user.role !== 'admin') {
     showToast('Akses ditolak: Hanya akun Admin yang berhak mengunduh Berita Acara.', 'error');
     return;
@@ -1041,11 +1183,13 @@ function exportBeritaAcaraCSV() {
 
   const headers = [
     'No',
-    'Waktu Pergantian',
-    'Petugas',
+    'Waktu Penetapan',
+    'Petugas Lapangan',
     'Status Cek Admin',
     'Waktu Cek Admin',
     'Verifikator Admin',
+    'Tingkat Pergantian',
+    'Status Pengganti',
     'ID Utama',
     'Kode Identitas Utama',
     'Nama KK Utama',
@@ -1059,39 +1203,114 @@ function exportBeritaAcaraCSV() {
     'Strata Pengganti',
     'Wilayah Pengganti',
     'Ruang Lingkup',
-    'Alasan Pergantian',
+    'Alasan Pergantian / Alasan Gugur',
     'Catatan Lapangan'
   ];
 
-  const rows = reps.map((r, i) => [
-    i + 1,
-    `"${r.timestamp}"`,
-    `"${r.petugas || 'petugas'}"`,
-    `"${r.verified ? 'SUDAH DICEK' : 'BELUM DICEK'}"`,
-    `"${r.verifiedAt || ''}"`,
-    `"${r.verifiedBy || ''}"`,
-    `"${r.utamaId}"`,
-    `"${r.utamaKode}"`,
-    `"${r.utamaNama.replace(/"/g, '""')}"`,
-    `"${r.utamaSub}"`,
-    `"${r.utamaStrata}"`,
-    `"${r.utamaWilayah.replace(/"/g, '""')}"`,
-    `"${r.penggantiId}"`,
-    `"${r.penggantiKode}"`,
-    `"${r.penggantiNama.replace(/"/g, '""')}"`,
-    `"${r.penggantiSub}"`,
-    `"${r.penggantiStrata}"`,
-    `"${r.penggantiWilayah.replace(/"/g, '""')}"`,
-    `"${formatScopeLabel(r.scope)}"`,
-    `"${r.alasan.replace(/"/g, '""')}"`,
-    `"${(r.catatan || '').replace(/"/g, '""')}"`
-  ]);
+  const rows = [];
+  let rowNo = 1;
 
-  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-  triggerDownload(csvContent, `Berita_Acara_Pergantian_Sampel_7301_${formatDateForFile(new Date())}.csv`);
+  reps.forEach(r => {
+    // 1. Tulis riwayat pengganti yang gugur sebelumnya
+    if (Array.isArray(r.history)) {
+      r.history.forEach(h => {
+        rows.push([
+          rowNo++,
+          h.waktuGugur ? new Date(h.waktuGugur).toLocaleString('id-ID') : '',
+          h.petugas || 'petugas',
+          '-',
+          '',
+          '',
+          `Ke-${h.urutan || 1} (Gugur)`,
+          'GUGUR DI LAPANGAN',
+          r.utamaId,
+          r.utamaKode,
+          r.utamaNama,
+          r.utamaSub,
+          r.utamaStrata,
+          r.utamaWilayah,
+          h.penggantiId,
+          h.penggantiKode,
+          h.penggantiNama,
+          h.penggantiSub,
+          h.penggantiStrata,
+          h.penggantiWilayah,
+          formatScopeLabel(r.scope),
+          h.alasanGugur || 'Tidak Eligible',
+          h.catatanGugur || ''
+        ]);
+      });
+    }
+
+    // 2. Tulis pengganti aktif saat ini
+    const activeStage = r.history && r.history.length > 0 ? `Ke-${r.history.length + 1} (Aktif)` : 'Ke-1 (Aktif)';
+    rows.push([
+      rowNo++,
+      r.timestamp ? new Date(r.timestamp).toLocaleString('id-ID') : '',
+      r.petugas || 'petugas',
+      r.verified ? 'SUDAH DICEK' : 'BELUM DICEK',
+      r.verifiedAt ? new Date(r.verifiedAt).toLocaleString('id-ID') : '',
+      r.verifiedBy || '',
+      activeStage,
+      'PENGGANTI AKTIF',
+      r.utamaId,
+      r.utamaKode,
+      r.utamaNama,
+      r.utamaSub,
+      r.utamaStrata,
+      r.utamaWilayah,
+      r.penggantiId,
+      r.penggantiKode,
+      r.penggantiNama,
+      r.penggantiSub,
+      r.penggantiStrata,
+      r.penggantiWilayah,
+      formatScopeLabel(r.scope),
+      r.alasan,
+      r.catatan || ''
+    ]);
+  });
+
+  if (typeof XLSX === 'undefined') {
+    alert('Pustaka SheetJS belum termuat. Pastikan file xlsx.full.min.js tersedia.');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  ws['!cols'] = [
+    { wch: 6 },  // No
+    { wch: 22 }, // Waktu Penetapan
+    { wch: 16 }, // Petugas Lapangan
+    { wch: 18 }, // Status Cek Admin
+    { wch: 22 }, // Waktu Cek Admin
+    { wch: 18 }, // Verifikator Admin
+    { wch: 20 }, // Tingkat Pergantian
+    { wch: 22 }, // Status Pengganti
+    { wch: 16 }, // ID Utama
+    { wch: 20 }, // Kode Identitas Utama
+    { wch: 28 }, // Nama KK Utama
+    { wch: 18 }, // Subsektor Utama
+    { wch: 12 }, // Strata Utama
+    { wch: 35 }, // Wilayah Utama
+    { wch: 16 }, // ID Pengganti
+    { wch: 20 }, // Kode Identitas Pengganti
+    { wch: 28 }, // Nama KK Pengganti
+    { wch: 18 }, // Subsektor Pengganti
+    { wch: 12 }, // Strata Pengganti
+    { wch: 35 }, // Wilayah Pengganti
+    { wch: 18 }, // Ruang Lingkup
+    { wch: 35 }, // Alasan Pergantian
+    { wch: 30 }  // Catatan Lapangan
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Berita Acara Pergantian');
+  XLSX.writeFile(wb, `Berita_Acara_Pergantian_Sampel_7301_${formatDateForFile(new Date())}.xlsx`);
+  showToast('File Excel Berita Acara berhasil diunduh.', 'success');
 }
 
-function exportDSRTFullCSV() {
+function exportDSRTFullExcel() {
   if (!STATE.user || STATE.user.role !== 'admin') {
     showToast('Akses ditolak: Hanya akun Admin yang berhak mengunduh DSRT Mutakhir.', 'error');
     return;
@@ -1103,6 +1322,7 @@ function exportDSRTFullCSV() {
     'Kode Identitas',
     'Status Asal',
     'Status Terkini',
+    'Tingkat Pergantian',
     'Status Cek Admin',
     'Nama KK',
     'Kecamatan',
@@ -1120,13 +1340,21 @@ function exportDSRTFullCSV() {
     'Ruang Lingkup'
   ];
 
-  const usedPenggantiMap = {};
+  const activePenggantiMap = {};
+  const disqualifiedPenggantiMap = {};
+
   Object.values(STATE.replacements).forEach(r => {
-    usedPenggantiMap[r.penggantiId] = r;
+    if (r.penggantiId) activePenggantiMap[r.penggantiId] = r;
+    if (Array.isArray(r.history)) {
+      r.history.forEach(h => {
+        if (h.penggantiId) disqualifiedPenggantiMap[h.penggantiId] = { rep: r, history: h };
+      });
+    }
   });
 
   const rows = STATE.data.map((item, idx) => {
     let statusTerkini = item.status;
+    let tingkat = '-';
     let statusCekAdmin = '-';
     let pasanganId = '';
     let pasanganKode = '';
@@ -1137,7 +1365,9 @@ function exportDSRTFullCSV() {
     if (item.status === 'UTAMA') {
       const rep = STATE.replacements[item.id];
       if (rep) {
+        const stage = (rep.history ? rep.history.length : 0) + 1;
         statusTerkini = 'DIGANTI';
+        tingkat = `Ke-${stage}`;
         statusCekAdmin = rep.verified ? 'SUDAH DICEK' : 'BELUM DICEK';
         pasanganId = rep.penggantiId;
         pasanganKode = rep.penggantiKode;
@@ -1148,15 +1378,28 @@ function exportDSRTFullCSV() {
         statusTerkini = 'AKTIF (TETAP)';
       }
     } else if (item.status === 'PENGGANTI') {
-      const rep = usedPenggantiMap[item.id];
-      if (rep) {
-        statusTerkini = 'PENGGANTI (TERPAKAI)';
-        statusCekAdmin = rep.verified ? 'SUDAH DICEK' : 'BELUM DICEK';
-        pasanganId = rep.utamaId;
-        pasanganKode = rep.utamaKode;
-        pasanganNama = rep.utamaNama;
-        alasan = rep.alasan;
-        scope = formatScopeLabel(rep.scope);
+      const repActive = activePenggantiMap[item.id];
+      const repDisq = disqualifiedPenggantiMap[item.id];
+
+      if (repActive) {
+        const stage = (repActive.history ? repActive.history.length : 0) + 1;
+        statusTerkini = 'PENGGANTI (AKTIF)';
+        tingkat = `Ke-${stage}`;
+        statusCekAdmin = repActive.verified ? 'SUDAH DICEK' : 'BELUM DICEK';
+        pasanganId = repActive.utamaId;
+        pasanganKode = repActive.utamaKode;
+        pasanganNama = repActive.utamaNama;
+        alasan = repActive.alasan;
+        scope = formatScopeLabel(repActive.scope);
+      } else if (repDisq) {
+        statusTerkini = 'PENGGANTI (GUGUR DI LAPANGAN)';
+        tingkat = `Ke-${repDisq.history.urutan || 1}`;
+        statusCekAdmin = '-';
+        pasanganId = repDisq.rep.utamaId;
+        pasanganKode = repDisq.rep.utamaKode;
+        pasanganNama = repDisq.rep.utamaNama;
+        alasan = `Gugur: ${repDisq.history.alasanGugur || '-'}`;
+        scope = formatScopeLabel(repDisq.rep.scope);
       } else {
         statusTerkini = 'PENGGANTI (TERSEDIA)';
       }
@@ -1164,42 +1407,69 @@ function exportDSRTFullCSV() {
 
     return [
       idx + 1,
-      `"${item.id}"`,
-      `"${item.kode}"`,
-      `"${item.status}"`,
-      `"${statusTerkini}"`,
-      `"${statusCekAdmin}"`,
-      `"${item.nama.replace(/"/g, '""')}"`,
-      `"${item.kec}"`,
-      `"${item.desa}"`,
-      `"${item.sls.replace(/"/g, '""')}"`,
-      `"${item.alamat.replace(/"/g, '""')}"`,
-      `"${item.sub}"`,
-      `"${item.kd_kbli}"`,
-      `"${item.kbli.replace(/"/g, '""')}"`,
-      `"${item.strata}"`,
-      `"${pasanganId}"`,
-      `"${pasanganKode}"`,
-      `"${pasanganNama.replace(/"/g, '""')}"`,
-      `"${alasan.replace(/"/g, '""')}"`,
-      `"${scope}"`
+      item.id,
+      item.kode,
+      item.status,
+      statusTerkini,
+      tingkat,
+      statusCekAdmin,
+      item.nama,
+      item.kec,
+      item.desa,
+      item.sls,
+      item.alamat,
+      item.sub,
+      item.kd_kbli,
+      item.kbli,
+      item.strata,
+      pasanganId,
+      pasanganKode,
+      pasanganNama,
+      alasan,
+      scope
     ];
   });
 
-  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-  triggerDownload(csvContent, `DSRT_7301_Mutakhir_${formatDateForFile(new Date())}.csv`);
+  if (typeof XLSX === 'undefined') {
+    alert('Pustaka SheetJS belum termuat. Pastikan file xlsx.full.min.js tersedia.');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  ws['!cols'] = [
+    { wch: 6 },  // No
+    { wch: 16 }, // ID Assignment
+    { wch: 20 }, // Kode Identitas
+    { wch: 14 }, // Status Asal
+    { wch: 28 }, // Status Terkini
+    { wch: 18 }, // Tingkat Pergantian
+    { wch: 18 }, // Status Cek Admin
+    { wch: 28 }, // Nama KK
+    { wch: 18 }, // Kecamatan
+    { wch: 22 }, // Desa
+    { wch: 30 }, // SLS
+    { wch: 35 }, // Alamat
+    { wch: 18 }, // Subsektor
+    { wch: 12 }, // Kode KBLI
+    { wch: 35 }, // KBLI
+    { wch: 8 },  // Strata
+    { wch: 16 }, // ID Pasangan
+    { wch: 20 }, // Kode Pasangan
+    { wch: 28 }, // Nama Pasangan
+    { wch: 35 }, // Alasan Pergantian
+    { wch: 18 }  // Ruang Lingkup
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'DSRT 7301 Mutakhir');
+  XLSX.writeFile(wb, `DSRT_7301_Mutakhir_${formatDateForFile(new Date())}.xlsx`);
+  showToast('File Excel DSRT Mutakhir berhasil diunduh.', 'success');
 }
 
-function triggerDownload(content, filename) {
-  const encodedUri = encodeURI(content);
-  const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  showToast(`File ${filename} berhasil diunduh.`, 'success');
-}
+// Backward compatibility alias
+function exportBeritaAcaraCSV() { exportBeritaAcaraExcel(); }
+function exportDSRTFullCSV() { exportDSRTFullExcel(); }
 
 // Setup Event Listeners
 function setupEventListeners() {
