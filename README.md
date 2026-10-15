@@ -56,10 +56,28 @@ Ikuti instruksi di layar, lalu hubungkan database KV lewat dashboard.
 
 ---
 
-## 🔐 Kredensial Login Petugas
+## 🔐 Kredensial Login & Hak Akses (Role-Based Access)
 
-- **Username**: `bps7301`
-- **Password**: `selayar2026`
-- **PIN Cepat**: `7301`
+Sistem membedakan hak akses berdasarkan peran akun:
+
+### 1. Akun Administrator (Hak Akses Penuh & Unduh Ekspor)
+- **Username**: `admin`
+- **Password**: `akunadmin`
+- **Wewenang**: 
+  - Pergantian & pembatalan (undo) sampel.
+  - **Centang Verifikasi Admin**: Menandai/memverifikasi sampel yang sudah diganti langsung dari tabel dashboard atau modal detail (tersimpan permanen di cloud Redis/KV).
+  - Sinkronisasi cloud multi-user (Vercel KV / Redis).
+  - Reset database.
+  - **Eksklusif Hak Download**: Ekspor Berita Acara Pergantian Sampel (.xlsx) & Ekspor DSRT Mutakhir (.xlsx) lengkap dengan riwayat pergantian bertingkat dan status verifikasi admin.
+
+### 2. Akun Petugas Lapangan (Input & Operasional)
+- **Username**: `petugas`
+- **Password**: `1234`
+- **Wewenang**:
+  - Input & pembatalan pergantian sampel di lapangan.
+  - Penanganan **Ganti Ulang (Pengganti Tidak Eligible)**: jika sampel pengganti pertama ($P_1$) tidak eligible (menolak, pindah, tutup usaha, dll.), petugas dapat menggugurkannya dan langsung memilih $P_2$. Sampel gugur terkunci permanen dari cadangan dan rekam jejaknya tersimpan di audit trail.
+  - Pencarian dan filter kandidat pengganti sesuai 4 ruang lingkup spasial, dilengkapi **filter dropdown Kecamatan & Desa** pada scope kecamatan/lintas kecamatan.
+  - Melihat status checklist verifikasi admin secara read-only.
+  - *Catatan*: Fitur pengunduhan ekspor file Excel dikunci khusus untuk Administrator guna mencegah kebocoran/duplikasi pelaporan sepihak.
 
 *(Informasi kredensial ini tidak ditampilkan di layar login publik untuk keamanan data).*

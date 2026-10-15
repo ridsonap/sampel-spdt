@@ -118,11 +118,17 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
 
 ## 5. PERSYARATAN FUNGSIONAL (FUNCTIONAL REQUIREMENTS)
 
-### FR-1: Autentikasi Pengguna & Keamanan Sesi
+### FR-1: Autentikasi Pengguna, Tingkatan Peran (RBAC) & Keamanan Sesi
 - **FR-1.1**: Tampilan Login Gate modern sebelum masuk ke modul utama.
-- **FR-1.2**: Kredensial default yang mudah diingat petugas:
-  - Username: `bps7301`
-  - Password: `selayar2026` (atau PIN cepat `7301`).
+- **FR-1.2**: Tingkatan Peran & Kredensial Pengguna (Role-Based Access Control):
+  1. **Administrator Sampling (`admin`)**:
+     - Username: `admin`
+     - Password: `akunadmin`
+     - Hak Akses: Penuh (Input/Undo pergantian sampel, Sinkronisasi Cloud, Reset Data Awal, dan **Eksklusif Hak Unduh Ekspor Berita Acara & DSRT Mutakhir**).
+  2. **Petugas Lapangan (`petugas`)**:
+     - Username: `petugas`
+     - Password: `1234`
+     - Hak Akses: Input & Undo pergantian sampel lapangan, pencarian kandidat, sinkronisasi cloud. Akses unduh ekspor file CSV dibatasi dengan proteksi sistem.
 - **FR-1.3**: Sesi disimpan di `sessionStorage` sehingga sesi aktif terjaga selama tab terbuka dan otomatis keluar saat browser ditutup.
 - **FR-1.4**: Tombol Logout jelas di header untuk mengakhiri sesi seketika.
 
@@ -139,7 +145,7 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
   - Filter Kecamatan (11 Kecamatan: Benteng, Bontoharu, Bontomanai, Bontomatene, Bontosikuyu, Buki, Pasilambena, Pasimarannu, Pasimassunggu, Pasimassunggu Timur, Takabonerate).
   - Filter Desa (dinamis sesuai kecamatan yang dipilih).
   - Filter Subsektor (Hortikultura, Kehutanan, Perikanan Budidaya, Perikanan Tangkap, Perkebunan, Peternakan).
-  - Filter Status Pergantian (Semua / Belum Diganti / Sudah Diganti).
+  - Filter Status Pergantian (Semua / Belum Diganti / Sudah Diganti / Sudah Dicek Admin / Belum Dicek Admin).
 
 ### FR-4: Tabel Sampel Utama Interaktif
 - Menampilkan daftar unit sampel utama lengkap dengan:
@@ -148,9 +154,13 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
   - Wilayah (Kecamatan, Desa, SLS).
   - Subsektor, KBLI, & Strata.
   - Status Badge: `AKTIF` atau `DIGANTI`.
+  - **Cek Admin (Checklist Verifikasi)**:
+    - Checkbox interaktif untuk Administrator guna menandai verifikasi sampel yang telah diganti.
+    - Status verifikasi tersimpan permanen di cloud Redis/KV (`verified: true/false`, timestamp, verifikator).
+    - Mode *read-only* bagi akun petugas lapangan.
   - Tombol Aksi:
     - Jika Belum Diganti: Tombol **"Ganti Sampel"** (Warna Biru/Primer).
-    - Jika Sudah Diganti: Tombol **"Detail & Batalkan"** (Warna Oranye/Peringatan).
+    - Jika Sudah Diganti: Tombol **"Detail / Undo"** (Warna Oranye/Peringatan).
 
 ### FR-5: Modal Interaktif Pergantian Sampel
 Saat tombol "Ganti Sampel" diklik:
@@ -163,6 +173,9 @@ Saat tombol "Ganti Sampel" diklik:
   2. Tab `1 Desa`.
   3. Tab `1 Kecamatan`.
   4. Tab `Lintas Kecamatan`.
+- **Filter Wilayah Pengganti Dinamis (Kecamatan & Desa)**:
+  - Pada tab `1 Kecamatan`: Dropdown desa aktif untuk mempersempit kandidat ke desa tertentu dalam kecamatan tersebut.
+  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan (11 kecamatan) dan desa aktif untuk memilih wilayah pengganti secara spesifik.
 - **Pengaturan Kesesuaian**:
   - Checkbox toggle "Wajib Subsektor Sama" (default checked).
   - Checkbox toggle "Prioritaskan Strata Sama" (default checked).
@@ -176,20 +189,30 @@ Saat tombol "Ganti Sampel" diklik:
 - Sampel pengganti yang telah dipilih langsung berstatus `TERPAKAI`.
 - Sampel berstatus `TERPAKAI` otomatis dihilangkan dari daftar rekomendasi untuk sampel utama mana pun.
 
-### FR-7: Manajemen Riwayat, Detail Pengganti & Rollback (Undo)
+### FR-7: Manajemen Riwayat, Detail Pengganti, Ganti Ulang (Tidak Eligible) & Rollback (Undo)
 - Klik pada sampel berstatus `DIGANTI` akan membuka modal detail yang menampilkan:
   - Data Sampel Utama asal.
-  - Data Sampel Pengganti terpilih.
+  - Data Sampel Pengganti terpilih (beserta label tingkat urutan pengganti, misal `Pengganti Ke-2`).
   - Alasan pergantian dan waktu transaksi pergantian.
   - Ruang lingkup yang digunakan (1 SLS / 1 Desa / 1 Kecamatan / Lintas Kecamatan).
+  - Status Cek Admin dan tombol verifikasi bagi Administrator.
+  - **Riwayat Pengganti Gugur di Lapangan**: Daftar seluruh sampel pengganti sebelumnya yang dinyatakan tidak eligible di lapangan ($P_1, P_2, \dots$), lengkap dengan alasan gugur, catatan, waktu, dan petugas.
+  - Tombol **"Ganti Ulang (Tidak Eligible)"**:
+    - Digunakan saat sampel pengganti terpilih di lapangan ternyata tidak eligible (menolak, pindah domisili, meninggal dunia, alih usaha, dll.).
+    - Membuka modal konfirmasi diskualifikasi untuk mencatat alasan gugur dan catatan lapangan.
+    - Sampel yang digugurkan **dikunci permanen** dari pool cadangan (tidak bisa dipilih oleh petugas mana pun).
+    - Membuka kembali modal pemilihan pengganti dengan banner notifikasi tingkat pergantian baru ($P_{k+1}$).
   - Tombol **"Batalkan Pergantian (Undo)"**: Mengembalikan sampel utama ke status AKTIF dan mengembalikan sampel cadangan ke pool TERSEDIA.
 
-### FR-8: Ekspor Laporan & Berita Acara
-Tersedia 2 opsi ekspor file CSV instan:
-1. **Ekspor Berita Acara Pergantian Sampel (BAPS)**:
-   - Hanya memuat baris sampel utama yang telah diganti beserta pasangan penggantinya, alasan, ruang lingkup, dan waktu penetapan.
-2. **Ekspor DSRT Termutakhir (Full Dataset)**:
-   - Memuat 1.643 data lengkap dengan kolom tambahan: `Status Terkini`, `ID Pengganti`, `Kode Pengganti`, `Nama Pengganti`, `Alasan Penggantian`, `Ruang Lingkup`.
+### FR-8: Ekspor Laporan & Berita Acara Excel .xlsx (Eksklusif Administrator)
+Fitur pengunduhan laporan file dibatasi secara ketat hanya untuk pengguna ber-peran **Administrator (`admin`)**. Petugas non-admin yang mencoba mengunduh akan menerima penolakan otorisasi.
+Tersedia 2 format ekspor berkas Excel asli (`.xlsx`) via pustaka SheetJS:
+1. **Ekspor Berita Acara Pergantian Sampel (BAPS) (.xlsx)**:
+   - Memuat riwayat pergantian lengkap per baris (baik sampel pengganti yang telah gugur maupun pengganti aktif).
+   - Kolom meliputi: No, Waktu Penetapan, Petugas Lapangan, Status Cek Admin, Waktu Cek Admin, Verifikator Admin, Tingkat Pergantian (`Ke-1 (Gugur)`, `Ke-2 (Aktif)`), Status Pengganti (`GUGUR DI LAPANGAN` / `PENGGANTI AKTIF`), ID Utama, Kode Identitas Utama, Nama KK Utama, Subsektor Utama, Strata Utama, Wilayah Utama, ID Pengganti, Kode Identitas Pengganti, Nama KK Pengganti, Subsektor Pengganti, Strata Pengganti, Wilayah Pengganti, Ruang Lingkup, Alasan Pergantian / Gugur, Catatan Lapangan.
+   - Dilengkapi lebar kolom (*column width*) yang telah diatur rapi untuk siap cetak/arsip.
+2. **Ekspor DSRT Termutakhir (Full Dataset) (.xlsx)**:
+   - Memuat 1.643 data lengkap dengan kolom tambahan: `Status Terkini` (`AKTIF (TETAP)`, `DIGANTI`, `PENGGANTI (TERSEDIA)`, `PENGGANTI (AKTIF)`, `PENGGANTI (GUGUR DI LAPANGAN)`), `Tingkat Pergantian`, `Status Cek Admin`, `ID Pasangan`, `Kode Pasangan`, `Nama Pasangan`, `Alasan Pergantian`, `Ruang Lingkup`.
 
 ### FR-9: Persistensi Data Lokal (Offline Resilience)
 - Semua transaksi pergantian tersimpan di `localStorage` peramban.
@@ -269,7 +292,7 @@ sampel_spdt/
 | ID | Skenario | Hasil yang Diharapkan |
 | :---: | :--- | :--- |
 | **AC-01** | Pengguna membuka situs tanpa login | Halaman menampilkan login form; dashboard terkunci. |
-| **AC-02** | Pengguna memasukkan username `bps7301` & password `selayar2026` | Login berhasil, redirect ke dashboard, metrik menampilkan data akurat (267 Utama). |
+| **AC-02** | Pengguna memasukkan username `petugas` & password `1234` | Login berhasil, redirect ke dashboard, metrik menampilkan data akurat (267 Utama). |
 | **AC-03** | Pengguna memilih sampel utama lalu membuka modal ganti | Tab "1 SLS" menampilkan kandidat dalam SLS yang sama dengan subsektor yang cocok. |
 | **AC-04** | Pengguna berpindah ke tab "1 Desa", "1 Kecamatan", atau "Lintas Kecamatan" | Daftar kandidat diperbarui secara instan sesuai batas spasial yang dipilih. |
 | **AC-05** | Pengguna memilih salah satu pengganti dan mengonfirmasi | Sampel utama berubah menjadi "DIGANTI"; pengganti terkunci dan tidak muncul lagi di pencarian lain. |
