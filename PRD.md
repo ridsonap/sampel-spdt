@@ -88,9 +88,9 @@ Sistem menyediakan 4 tab/opsi ruang lingkup pemilihan:
 1. **Kesesuaian Subsektor (Wajib / Strict Match by Default)**:
    - Sampel Utama Subsektor `HORTIKULTURA` hanya boleh diganti oleh kandidat `HORTIKULTURA`.
    - Tersedia toggle "Wajib Subsektor Sama" (default: Aktif). Jika dimatikan oleh supervisor dengan otorisasi khusus, sistem menampilkan peringatan deviasi metodologi.
-2. **Kesesuaian Strata (Prioritas / Recommended Match)**:
-   - Sampel Utama Strata `1` diutamakan diganti oleh Strata `1`, Strata `2` dengan Strata `2`.
-   - Kandidat dengan strata identik otomatis diberi skor kecocokan lebih tinggi dan ditempatkan di urutan teratas.
+2. **Kesesuaian Strata (Wajib / Strict Match by Default)**:
+   - Sampel Utama Strata `1` hanya boleh diganti oleh Strata `1`, Strata `2` dengan Strata `2`.
+   - Tersedia toggle "Wajib Strata Sama" (default: Aktif). Jika dimatikan oleh supervisor dengan otorisasi khusus, sistem menampilkan peringatan deviasi metodologi; kandidat dengan strata identik tetap diberi skor lebih tinggi dan ditempatkan di urutan teratas.
 3. **Kesesuaian KBLI 5-Digit (Nice to Have)**:
    - Menampilkan badge "KBLI Identik" jika kode 5 digit (misal `01220` Pertanian Buah Tropis) sama persis.
 
@@ -178,7 +178,7 @@ Saat tombol "Ganti Sampel" diklik:
   - Pada tab `Lintas Kecamatan`: Dropdown kecamatan (10 kecamatan lain, tanpa kecamatan asal) dan desa aktif untuk memilih wilayah pengganti secara spesifik.
 - **Pengaturan Kesesuaian**:
   - Checkbox toggle "Wajib Subsektor Sama" (default checked).
-  - Checkbox toggle "Prioritaskan Strata Sama" (default checked).
+  - Checkbox toggle "Wajib Strata Sama" (default checked).
 - **Daftar Rekomendasi Kandidat**:
   - Kartu/baris kandidat menampilkan: Nama KK, Kode Identitas, Alamat SLS/Desa, Subsektor, Strata, KBLI.
   - Badge kesesuaian: `Subsektor Cocok`, `Strata Cocok`, `SLS Cocok`.

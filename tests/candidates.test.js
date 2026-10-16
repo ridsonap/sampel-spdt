@@ -30,7 +30,7 @@ const opts = (overrides = {}) => ({
   filterKec: '',
   filterDesa: '',
   requireSubsektor: true,
-  prioritizeStrata: true,
+  requireStrata: true,
   ...overrides
 });
 
@@ -83,20 +83,20 @@ test('requireSubsektor filters by subsektor; turning it off admits other subsekt
   assert.deepEqual(relaxed.map(c => c.id), ['same-sls', 'other-sub']);
 });
 
-test('prioritizeStrata ranks same strata above a nearer unit with different strata', () => {
+test('requireStrata excludes candidates with a different strata', () => {
   const strataPool = [
     unit('near-strata2', '010', 'PASIMARANNU', '005', 'BATU BINGKUNG', '000202', 'HORTIKULTURA', '2'),
     unit('far-strata1', '010', 'PASIMARANNU', '005', 'BATU BINGKUNG', '000300', 'HORTIKULTURA', '1')
   ];
-  const on = getReplacementCandidates(target, strataPool, opts({ scope: 'desa', prioritizeStrata: true }));
-  assert.deepEqual(on.map(c => c.id), ['far-strata1', 'near-strata2']);
+  const strict = getReplacementCandidates(target, strataPool, opts({ scope: 'desa', requireStrata: true }));
+  assert.deepEqual(strict.map(c => c.id), ['far-strata1']);
 });
 
-test('prioritizeStrata off ranks by proximity regardless of strata', () => {
+test('requireStrata off admits other strata but still ranks same strata first', () => {
   const strataPool = [
-    unit('far-strata1', '010', 'PASIMARANNU', '005', 'BATU BINGKUNG', '000300', 'HORTIKULTURA', '1'),
-    unit('near-strata2', '010', 'PASIMARANNU', '005', 'BATU BINGKUNG', '000202', 'HORTIKULTURA', '2')
+    unit('near-strata2', '010', 'PASIMARANNU', '005', 'BATU BINGKUNG', '000202', 'HORTIKULTURA', '2'),
+    unit('far-strata1', '010', 'PASIMARANNU', '005', 'BATU BINGKUNG', '000300', 'HORTIKULTURA', '1')
   ];
-  const off = getReplacementCandidates(target, strataPool, opts({ scope: 'desa', prioritizeStrata: false }));
-  assert.deepEqual(off.map(c => c.id), ['near-strata2', 'far-strata1']);
+  const relaxed = getReplacementCandidates(target, strataPool, opts({ scope: 'desa', requireStrata: false }));
+  assert.deepEqual(relaxed.map(c => c.id), ['far-strata1', 'near-strata2']);
 });

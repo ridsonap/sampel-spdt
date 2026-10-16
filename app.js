@@ -26,7 +26,7 @@ const STATE = {
     filterKec: '',     // Filter kecamatan pilihan di modal
     filterDesa: '',    // Filter desa pilihan di modal
     requireSubsektor: true,
-    prioritizeStrata: true,
+    requireStrata: true,
     alasan: 'Responden Menolak (Refusal)',
     catatan: ''
   }
@@ -647,7 +647,7 @@ function openReplaceModal(utamaId) {
   STATE.modal.filterKec = '';
   STATE.modal.filterDesa = '';
   STATE.modal.requireSubsektor = true;
-  STATE.modal.prioritizeStrata = true;
+  STATE.modal.requireStrata = true;
   STATE.modal.alasan = 'Responden Menolak (Refusal)';
   STATE.modal.catatan = '';
 
@@ -661,7 +661,7 @@ function openReplaceModal(utamaId) {
   document.getElementById('modal-input-alasan').value = STATE.modal.alasan;
   document.getElementById('modal-input-catatan').value = '';
   document.getElementById('toggle-req-subsektor').checked = true;
-  document.getElementById('toggle-prio-strata').checked = true;
+  document.getElementById('toggle-req-strata').checked = true;
 
   // Cek apakah ini mode ganti ulang (setelah pengganti sebelumnya gugur)
   const noticeEl = document.getElementById('modal-replace-re-replace-notice');
@@ -790,12 +790,13 @@ function updateModalDesaOptions(selectedKec) {
 }
 
 // Filter & rank replacement candidates for a main sample (pure, no DOM access).
-// opts: { scope, filterKec, filterDesa, requireSubsektor, prioritizeStrata }
+// opts: { scope, filterKec, filterDesa, requireSubsektor, requireStrata }
 function getReplacementCandidates(target, pool, opts) {
-  const { scope, filterKec, filterDesa, requireSubsektor, prioritizeStrata } = opts;
+  const { scope, filterKec, filterDesa, requireSubsektor, requireStrata } = opts;
 
   const candidates = pool.filter(p => {
     if (requireSubsektor && p.sub !== target.sub) return false;
+    if (requireStrata && p.strata !== target.strata) return false;
 
     if (scope === 'sls') {
       return p.kd_kec === target.kd_kec && p.kd_desa === target.kd_desa && p.kd_sls === target.kd_sls;
@@ -826,7 +827,7 @@ function getReplacementCandidates(target, pool, opts) {
     else score += 10;
 
     if (c.sub === target.sub) score += 50;
-    if (prioritizeStrata && c.strata === target.strata) score += 20;
+    if (c.strata === target.strata) score += 20;
     if (c.kd_kbli === target.kd_kbli) score += 10;
 
     c._score = score;
@@ -849,6 +850,8 @@ function renderCandidateList() {
   const candidates = getReplacementCandidates(target, allPengganti, STATE.modal);
   const subWarning = document.getElementById('warning-subsektor-deviation');
   if (subWarning) subWarning.classList.toggle('hidden', STATE.modal.requireSubsektor);
+  const strataWarning = document.getElementById('warning-strata-deviation');
+  if (strataWarning) strataWarning.classList.toggle('hidden', STATE.modal.requireStrata);
   document.getElementById('candidate-count-header').textContent = `${candidates.length} kandidat ditemukan`;
 
   if (candidates.length === 0) {
@@ -1568,10 +1571,10 @@ function setupEventListeners() {
     });
   }
 
-  const toggleStrata = document.getElementById('toggle-prio-strata');
+  const toggleStrata = document.getElementById('toggle-req-strata');
   if (toggleStrata) {
     toggleStrata.addEventListener('change', (e) => {
-      STATE.modal.prioritizeStrata = e.target.checked;
+      STATE.modal.requireStrata = e.target.checked;
       renderCandidateList();
     });
   }
