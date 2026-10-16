@@ -748,10 +748,10 @@ function updateModalLocationFilterUI() {
   } else if (scope === 'lintas_kecamatan') {
     kecWrapper.classList.remove('hidden');
     desaWrapper.classList.remove('hidden');
-    if (hintSpan) hintSpan.textContent = 'Pilih kecamatan & desa tujuan (opsional)';
+    if (hintSpan) hintSpan.textContent = `Di luar Kecamatan ${target.kec} (opsional)`;
 
-    const kecs = [...new Set(STATE.data.map(d => d.kec))].sort();
-    kecSelect.innerHTML = '<option value="">Semua Kecamatan (11)</option>';
+    const kecs = getLintasKecamatanOptions(STATE.data, target);
+    kecSelect.innerHTML = `<option value="">Semua Kecamatan (${kecs.length})</option>`;
     kecs.forEach(k => {
       const opt = document.createElement('option');
       opt.value = k;
@@ -762,6 +762,11 @@ function updateModalLocationFilterUI() {
 
     updateModalDesaOptions(STATE.modal.filterKec);
   }
+}
+
+// Kecamatan choices offered on the "Lintas Kecamatan" tab (excludes the main sample's own kecamatan).
+function getLintasKecamatanOptions(data, target) {
+  return [...new Set(data.filter(d => d.kd_kec !== target.kd_kec).map(d => d.kec))].sort();
 }
 
 function updateModalDesaOptions(selectedKec) {
@@ -784,20 +789,13 @@ function updateModalDesaOptions(selectedKec) {
   });
 }
 
-function renderCandidateList() {
-  const target = STATE.modal.activeUtama;
-  if (!target) return;
+// Filter & rank replacement candidates for a main sample (pure, no DOM access).
+// opts: { scope, filterKec, filterDesa, requireSubsektor, prioritizeStrata }
+function getReplacementCandidates(target, pool, opts) {
+  const { scope, filterKec, filterDesa, requireSubsektor, prioritizeStrata } = opts;
 
-  const container = document.getElementById('candidate-list-container');
-  const usedPenggantiIds = getUsedPenggantiIds();
-  const allPengganti = getPenggantiList().filter(p => !usedPenggantiIds.has(p.id));
-
-  const scope = STATE.modal.scope;
-  const requireSub = STATE.modal.requireSubsektor;
-  const prioritizeStrata = STATE.modal.prioritizeStrata;
-
-  let candidates = allPengganti.filter(p => {
-    if (requireSub && p.sub !== target.sub) return false;
+  const candidates = pool.filter(p => {
+    if (requireSubsektor && p.sub !== target.sub) return false;
 
     if (scope === 'sls') {
       return p.kd_kec === target.kd_kec && p.kd_desa === target.kd_desa && p.kd_sls === target.kd_sls;
@@ -805,11 +803,12 @@ function renderCandidateList() {
       return p.kd_kec === target.kd_kec && p.kd_desa === target.kd_desa;
     } else if (scope === 'kecamatan') {
       if (p.kd_kec !== target.kd_kec) return false;
-      if (STATE.modal.filterDesa && p.desa !== STATE.modal.filterDesa) return false;
+      if (filterDesa && p.desa !== filterDesa) return false;
       return true;
     } else if (scope === 'lintas_kecamatan') {
-      if (STATE.modal.filterKec && p.kec !== STATE.modal.filterKec) return false;
-      if (STATE.modal.filterDesa && p.desa !== STATE.modal.filterDesa) return false;
+      if (p.kd_kec === target.kd_kec) return false;
+      if (filterKec && p.kec !== filterKec) return false;
+      if (filterDesa && p.desa !== filterDesa) return false;
       return true;
     }
     return true;
@@ -827,7 +826,7 @@ function renderCandidateList() {
     else score += 10;
 
     if (c.sub === target.sub) score += 50;
-    if (c.strata === target.strata) score += 20;
+    if (prioritizeStrata && c.strata === target.strata) score += 20;
     if (c.kd_kbli === target.kd_kbli) score += 10;
 
     c._score = score;
@@ -836,7 +835,20 @@ function renderCandidateList() {
     c._isSameKec = isSameKec;
   });
 
-  candidates.sort((a, b) => b._score - a._score);
+  return candidates.sort((a, b) => b._score - a._score);
+}
+
+function renderCandidateList() {
+  const target = STATE.modal.activeUtama;
+  if (!target) return;
+
+  const container = document.getElementById('candidate-list-container');
+  const usedPenggantiIds = getUsedPenggantiIds();
+  const allPengganti = getPenggantiList().filter(p => !usedPenggantiIds.has(p.id));
+
+  const candidates = getReplacementCandidates(target, allPengganti, STATE.modal);
+  const subWarning = document.getElementById('warning-subsektor-deviation');
+  if (subWarning) subWarning.classList.toggle('hidden', STATE.modal.requireSubsektor);
   document.getElementById('candidate-count-header').textContent = `${candidates.length} kandidat ditemukan`;
 
   if (candidates.length === 0) {

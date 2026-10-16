@@ -82,7 +82,7 @@ Sistem menyediakan 4 tab/opsi ruang lingkup pemilihan:
 | **1. Dalam 1 SLS** | `Kode Kec` SAMA, `Kode Desa` SAMA, `Kode SLS` SAMA | Prioritas 1 (Utama) | Pengganti berada di lingkungan rukun tetangga/dusun yang sama persis. |
 | **2. 1 Desa** | `Kode Kec` SAMA, `Kode Desa` SAMA (SLS boleh beda) | Prioritas 2 | Digunakan jika cadangan dalam SLS habis. |
 | **3. 1 Kecamatan** | `Kode Kec` SAMA (Desa & SLS boleh beda) | Prioritas 3 | Digunakan jika cadangan dalam 1 desa tidak tersedia. |
-| **4. Lintas Kecamatan** | Antar kecamatan dalam Kab. Kepulauan Selayar | Prioritas 4 (Darurat) | Digunakan jika seluruh cadangan di kecamatan asal telah habis/tidak sesuai. |
+| **4. Lintas Kecamatan** | `Kode Kec` BEDA (kecamatan asal tidak termasuk), dalam Kab. Kepulauan Selayar | Prioritas 4 (Darurat) | Digunakan jika seluruh cadangan di kecamatan asal telah habis/tidak sesuai. |
 
 ### 4.3 Aturan Kesesuaian Karakteristik (Matching Rules)
 1. **Kesesuaian Subsektor (Wajib / Strict Match by Default)**:
@@ -175,7 +175,7 @@ Saat tombol "Ganti Sampel" diklik:
   4. Tab `Lintas Kecamatan`.
 - **Filter Wilayah Pengganti Dinamis (Kecamatan & Desa)**:
   - Pada tab `1 Kecamatan`: Dropdown desa aktif untuk mempersempit kandidat ke desa tertentu dalam kecamatan tersebut.
-  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan (11 kecamatan) dan desa aktif untuk memilih wilayah pengganti secara spesifik.
+  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan (10 kecamatan lain, tanpa kecamatan asal) dan desa aktif untuk memilih wilayah pengganti secara spesifik.
 - **Pengaturan Kesesuaian**:
   - Checkbox toggle "Wajib Subsektor Sama" (default checked).
   - Checkbox toggle "Prioritaskan Strata Sama" (default checked).
