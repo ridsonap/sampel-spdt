@@ -142,8 +142,9 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
 ### FR-3: Filter & Pencarian Cepat
 - **Pencarian Bebas (Live Search)**: Nama Kepala Keluarga, Kode Identitas (misal `7301010 - U - 94`), atau Alamat.
 - **Filter Dropdown**:
-  - Filter Kecamatan (11 Kecamatan: Benteng, Bontoharu, Bontomanai, Bontomatene, Bontosikuyu, Buki, Pasilambena, Pasimarannu, Pasimassunggu, Pasimassunggu Timur, Takabonerate).
-  - Filter Desa (dinamis sesuai kecamatan yang dipilih).
+  - Filter Kecamatan, **multi-pilih** (11 Kecamatan: Benteng, Bontoharu, Bontomanai, Bontomatene, Bontosikuyu, Buki, Pasilambena, Pasimarannu, Pasimassunggu, Pasimassunggu Timur, Takabonerate).
+  - Filter Desa, **multi-pilih** (dinamis sesuai kecamatan yang dipilih, dikelompokkan per kecamatan).
+  - Aturan gabungan: beberapa kecamatan digabung dengan OR; desa terpilih hanya mempersempit kecamatan asalnya, sehingga kecamatan terpilih yang tidak memiliki desa terpilih tetap ditampilkan seluruhnya.
   - Filter Subsektor (Hortikultura, Kehutanan, Perikanan Budidaya, Perikanan Tangkap, Perkebunan, Peternakan).
   - Filter Status Pergantian (Semua / Belum Diganti / Sudah Diganti / Sudah Dicek Admin / Belum Dicek Admin).
 
@@ -174,8 +175,9 @@ Saat tombol "Ganti Sampel" diklik:
   3. Tab `1 Kecamatan`.
   4. Tab `Lintas Kecamatan`.
 - **Filter Wilayah Pengganti Dinamis (Kecamatan & Desa)**:
-  - Pada tab `1 Kecamatan`: Dropdown desa aktif untuk mempersempit kandidat ke desa tertentu dalam kecamatan tersebut.
-  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan (10 kecamatan lain, tanpa kecamatan asal) dan desa aktif untuk memilih wilayah pengganti secara spesifik.
+  - Pada tab `1 Kecamatan`: Dropdown desa **multi-pilih** untuk mempersempit kandidat ke satu atau beberapa desa dalam kecamatan tersebut.
+  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan **multi-pilih** (10 kecamatan lain, tanpa kecamatan asal) dan desa **multi-pilih** untuk memilih wilayah pengganti secara spesifik (aturan gabungan sama dengan FR-3).
+  - Setiap opsi kecamatan/desa menampilkan jumlah kandidat yang memenuhi syarat (mengikuti toggle subsektor & strata).
 - **Pengaturan Kesesuaian**:
   - Checkbox toggle "Wajib Subsektor Sama" (default checked).
   - Checkbox toggle "Wajib Strata Sama" (default checked).

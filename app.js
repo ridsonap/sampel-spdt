@@ -11,8 +11,8 @@ const STATE = {
   cloudSync: false,    // Indikator status koneksi ke cloud (Vercel KV)
   filters: {
     search: '',
-    kec: '',
-    desa: '',
+    kec: [],           // kd_kec terpilih (multi)
+    desa: [],          // desaKey terpilih (multi), lihat desaKey()
     subsektor: '',
     status: 'ALL',     // ALL, BELUM_DIGANTI, SUDAH_DIGANTI
     page: 1,
@@ -23,8 +23,8 @@ const STATE = {
     activeDisqualifyUtamaId: null,
     reReplaceContext: null, // { utamaId, disqualifiedEntry }
     scope: 'sls',      // sls, desa, kecamatan, lintas_kecamatan
-    filterKec: '',     // Filter kecamatan pilihan di modal
-    filterDesa: '',    // Filter desa pilihan di modal
+    filterKec: [],     // Filter kecamatan pilihan di modal (multi, kd_kec)
+    filterDesa: [],    // Filter desa pilihan di modal (multi, desaKey)
     requireSubsektor: true,
     requireStrata: true,
     alasan: 'Responden Menolak (Refusal)',
@@ -389,36 +389,228 @@ function renderMetrics() {
   }
 }
 
-function renderKecamatanOptions() {
-  const kecSelect = document.getElementById('filter-kecamatan');
-  const kecamatanList = [...new Set(STATE.data.map(d => d.kec))].sort();
+// Multi-select dropdown (vanilla, no dependency)
+const MULTI_SELECTS = {};
+const OPEN_MULTI_SELECTS = new Set();
 
-  kecSelect.innerHTML = '<option value="">Semua Kecamatan (11)</option>';
-  kecamatanList.forEach(k => {
-    const opt = document.createElement('option');
-    opt.value = k;
-    opt.textContent = k;
-    kecSelect.appendChild(opt);
+// Builds a checkbox dropdown inside the element `rootId`.
+// config: { unit, searchPlaceholder, buttonBg, onChange(values) }
+function createMultiSelect(rootId, config) {
+  const root = document.getElementById(rootId);
+  if (!root) return null;
+
+  const state = { options: [], values: [], allLabel: 'Semua', disabled: false, disabledLabel: '', query: '' };
+  const buttonBg = config.buttonBg || 'bg-slate-50';
+  const buttonBase = 'w-full flex items-center justify-between gap-1 px-2.5 py-1.5 border rounded-lg text-xs font-medium text-left focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed';
+
+  root.classList.add('relative');
+  root.innerHTML = `
+    <button type="button" id="${rootId}-btn" data-ms-toggle aria-haspopup="listbox" aria-expanded="false"
+      class="${buttonBase}">
+      <span data-ms-summary class="truncate"></span>
+      <svg class="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+    <div data-ms-panel class="hidden absolute z-40 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg">
+      <div class="p-2 border-b border-slate-100 space-y-1.5">
+        <input type="text" data-ms-search placeholder="${escapeHtml(config.searchPlaceholder || 'Cari...')}"
+          class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-blue-500" />
+        <div class="flex items-center justify-between text-[11px] font-semibold">
+          <button type="button" data-ms-all class="text-blue-600 hover:text-blue-800">Pilih semua</button>
+          <button type="button" data-ms-clear class="text-slate-500 hover:text-slate-800">Kosongkan</button>
+        </div>
+      </div>
+      <div data-ms-list role="listbox" aria-multiselectable="true" class="max-h-60 overflow-y-auto py-1"></div>
+    </div>
+  `;
+
+  const toggle = root.querySelector('[data-ms-toggle]');
+  const summary = root.querySelector('[data-ms-summary]');
+  const panel = root.querySelector('[data-ms-panel]');
+  const search = root.querySelector('[data-ms-search]');
+  const list = root.querySelector('[data-ms-list]');
+
+  const visibleOptions = () => {
+    const q = state.query.toLowerCase();
+    if (!q) return state.options;
+    return state.options.filter(o => o.label.toLowerCase().includes(q) || (o.group && o.group.toLowerCase().includes(q)));
+  };
+
+  const renderSummary = () => {
+    const n = state.values.length;
+    let text;
+    if (state.disabled) text = state.disabledLabel;
+    else if (n === 0) text = state.allLabel;
+    else if (n === 1) {
+      const opt = state.options.find(o => o.value === state.values[0]);
+      text = opt ? opt.label : state.values[0];
+    } else text = `${n} ${config.unit} dipilih`;
+    summary.textContent = text;
+    toggle.title = n > 1 ? state.options.filter(o => state.values.includes(o.value)).map(o => o.label).join(', ') : '';
+    toggle.disabled = state.disabled;
+    const tone = n > 0 && !state.disabled
+      ? 'bg-blue-50 border-blue-300 text-blue-800'
+      : `${buttonBg} border-slate-200 text-slate-700`;
+    toggle.className = `${buttonBase} ${tone}`;
+  };
+
+  const renderList = () => {
+    const scrollTop = list.scrollTop;
+    const opts = visibleOptions();
+    const showGroups = new Set(state.options.map(o => o.group).filter(Boolean)).size > 1;
+    let lastGroup = null;
+    const html = [];
+    opts.forEach(o => {
+      if (showGroups && o.group !== lastGroup) {
+        lastGroup = o.group;
+        html.push(`<div class="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">${escapeHtml(o.group)}</div>`);
+      }
+      html.push(`
+        <label class="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer">
+          <input type="checkbox" value="${escapeHtml(o.value)}" ${state.values.includes(o.value) ? 'checked' : ''}
+            class="w-3.5 h-3.5 shrink-0 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+          <span class="truncate">${escapeHtml(o.label)}</span>
+          ${o.count !== undefined ? `<span class="ml-auto pl-2 shrink-0 text-[10px] font-mono font-semibold ${o.count ? 'text-blue-600' : 'text-slate-300'}">${o.count}</span>` : ''}
+        </label>
+      `);
+    });
+    list.innerHTML = html.length ? html.join('') : '<div class="px-3 py-3 text-xs text-slate-400 text-center">Tidak ada hasil</div>';
+    list.scrollTop = scrollTop;
+    search.classList.toggle('hidden', state.options.length <= 7);
+  };
+
+  // Keep the panel inside the viewport (or the nearest [data-ms-bound] container, e.g. a modal body).
+  const positionPanel = () => {
+    const btnRect = toggle.getBoundingClientRect();
+    const boundEl = root.closest('[data-ms-bound]');
+    const bound = boundEl ? boundEl.getBoundingClientRect() : { left: 0, right: window.innerWidth };
+    const maxWidth = bound.right - bound.left - 16;
+    const width = Math.min(Math.max(btnRect.width, 256), maxWidth);
+    let left = 0;
+    if (btnRect.left + width > bound.right - 8) left = bound.right - 8 - width - btnRect.left;
+    panel.style.width = `${width}px`;
+    panel.style.left = `${left}px`;
+  };
+
+  const close = () => {
+    panel.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'false');
+    OPEN_MULTI_SELECTS.delete(api);
+  };
+
+  const open = () => {
+    OPEN_MULTI_SELECTS.forEach(ms => { if (ms !== api) ms.close(); });
+    state.query = '';
+    search.value = '';
+    renderList();
+    panel.classList.remove('hidden');
+    positionPanel();
+    toggle.setAttribute('aria-expanded', 'true');
+    OPEN_MULTI_SELECTS.add(api);
+  };
+
+  const commit = values => {
+    state.values = values;
+    renderSummary();
+    renderList();
+    config.onChange([...state.values]);
+  };
+
+  toggle.addEventListener('click', () => (panel.classList.contains('hidden') ? open() : close()));
+  search.addEventListener('input', () => { state.query = search.value.trim(); renderList(); });
+  list.addEventListener('change', e => {
+    const cb = e.target;
+    if (cb.type !== 'checkbox') return;
+    const next = cb.checked ? [...state.values, cb.value] : state.values.filter(v => v !== cb.value);
+    commit(next);
+  });
+  root.querySelector('[data-ms-all]').addEventListener('click', () => {
+    commit([...new Set([...state.values, ...visibleOptions().map(o => o.value)])]);
+  });
+  root.querySelector('[data-ms-clear]').addEventListener('click', () => commit([]));
+
+  const api = {
+    root,
+    close,
+    focus: () => toggle.focus(),
+    getValue: () => [...state.values],
+    setOptions(options, allLabel) {
+      state.options = options;
+      if (allLabel) state.allLabel = allLabel;
+      const valid = new Set(options.map(o => o.value));
+      state.values = state.values.filter(v => valid.has(v));
+      renderSummary();
+      renderList();
+    },
+    setValue(values) {
+      state.values = [...values];
+      renderSummary();
+      renderList();
+    },
+    setDisabled(disabled, label) {
+      state.disabled = disabled;
+      state.disabledLabel = label || '';
+      if (disabled) close();
+      renderSummary();
+    }
+  };
+
+  renderSummary();
+  return api;
+}
+
+document.addEventListener('click', e => {
+  OPEN_MULTI_SELECTS.forEach(ms => { if (!ms.root.contains(e.target)) ms.close(); });
+});
+
+// Listen on document: clicking a checkbox label does not move focus into the dropdown.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || OPEN_MULTI_SELECTS.size === 0) return;
+  OPEN_MULTI_SELECTS.forEach(ms => {
+    ms.close();
+    ms.focus();
+  });
+});
+
+function setupMainLocationFilters() {
+  MULTI_SELECTS.kec = createMultiSelect('ms-filter-kecamatan', {
+    unit: 'kecamatan',
+    searchPlaceholder: 'Cari kecamatan...',
+    onChange: values => {
+      STATE.filters.kec = values;
+      STATE.filters.desa = STATE.filters.desa.filter(k => values.includes(k.split('-')[0]));
+      refreshMainDesaFilter();
+      STATE.filters.page = 1;
+      renderTable();
+    }
+  });
+  MULTI_SELECTS.desa = createMultiSelect('ms-filter-desa', {
+    unit: 'desa',
+    searchPlaceholder: 'Cari desa...',
+    onChange: values => {
+      STATE.filters.desa = values;
+      STATE.filters.page = 1;
+      renderTable();
+    }
   });
 }
 
-function updateDesaOptions(selectedKec) {
-  const desaSelect = document.getElementById('filter-desa');
-  if (!selectedKec) {
-    desaSelect.innerHTML = '<option value="">Semua Desa</option>';
-    desaSelect.disabled = true;
-    return;
-  }
+function renderKecamatanOptions() {
+  if (!MULTI_SELECTS.kec) setupMainLocationFilters();
+  const kecs = getKecamatanOptions(getUtamaList());
+  MULTI_SELECTS.kec.setOptions(kecs, `Semua Kecamatan (${kecs.length})`);
+  MULTI_SELECTS.kec.setValue(STATE.filters.kec);
+  refreshMainDesaFilter();
+}
 
-  const desas = [...new Set(STATE.data.filter(d => d.kec === selectedKec).map(d => d.desa))].sort();
-  desaSelect.innerHTML = '<option value="">Semua Desa (' + desas.length + ')</option>';
-  desas.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d;
-    opt.textContent = d;
-    desaSelect.appendChild(opt);
-  });
-  desaSelect.disabled = false;
+function refreshMainDesaFilter() {
+  const ms = MULTI_SELECTS.desa;
+  if (!ms) return;
+  const options = getDesaOptions(getUtamaList(), STATE.filters.kec);
+  ms.setOptions(options, `Semua Desa (${options.length})`);
+  ms.setValue(STATE.filters.desa);
+  ms.setDisabled(STATE.filters.kec.length === 0, 'Pilih kecamatan dulu');
 }
 
 // Filter & Table
@@ -437,12 +629,8 @@ function getFilteredUtamaList() {
     );
   }
 
-  if (kec) {
-    list = list.filter(item => item.kec === kec);
-  }
-
-  if (desa) {
-    list = list.filter(item => item.desa === desa);
+  if (kec.length || desa.length) {
+    list = list.filter(item => matchesLocation(item, kec, desa));
   }
 
   if (subsektor) {
@@ -699,8 +887,8 @@ function openReplaceModal(utamaId) {
 
   STATE.modal.activeUtama = item;
   STATE.modal.scope = 'sls';
-  STATE.modal.filterKec = '';
-  STATE.modal.filterDesa = '';
+  STATE.modal.filterKec = [];
+  STATE.modal.filterDesa = [];
   STATE.modal.requireSubsektor = true;
   STATE.modal.requireStrata = true;
   STATE.modal.alasan = 'Responden Menolak (Refusal)';
@@ -740,15 +928,17 @@ function openReplaceModal(utamaId) {
 function closeReplaceModal() {
   document.getElementById('modal-replace').classList.add('hidden');
   STATE.modal.activeUtama = null;
-  STATE.modal.filterKec = '';
-  STATE.modal.filterDesa = '';
+  STATE.modal.filterKec = [];
+  STATE.modal.filterDesa = [];
   STATE.modal.reReplaceContext = null;
+  if (MULTI_SELECTS.modalKec) MULTI_SELECTS.modalKec.close();
+  if (MULTI_SELECTS.modalDesa) MULTI_SELECTS.modalDesa.close();
 }
 
 function setModalScope(scope) {
   STATE.modal.scope = scope;
-  STATE.modal.filterKec = '';
-  STATE.modal.filterDesa = '';
+  STATE.modal.filterKec = [];
+  STATE.modal.filterDesa = [];
 
   const tabBase = 'flex items-center justify-center gap-1.5 flex-wrap px-1.5 py-1.5 text-xs rounded-lg transition-all text-center leading-tight';
   SCOPES.forEach(t => {
@@ -766,15 +956,35 @@ function setModalScope(scope) {
   renderCandidateList();
 }
 
+function setupModalLocationFilters() {
+  MULTI_SELECTS.modalKec = createMultiSelect('ms-modal-kecamatan', {
+    unit: 'kecamatan',
+    searchPlaceholder: 'Cari kecamatan...',
+    buttonBg: 'bg-white',
+    onChange: values => {
+      STATE.modal.filterKec = values;
+      STATE.modal.filterDesa = STATE.modal.filterDesa.filter(k => values.includes(k.split('-')[0]));
+      renderCandidateList();
+    }
+  });
+  MULTI_SELECTS.modalDesa = createMultiSelect('ms-modal-desa', {
+    unit: 'desa',
+    searchPlaceholder: 'Cari desa...',
+    buttonBg: 'bg-white',
+    onChange: values => {
+      STATE.modal.filterDesa = values;
+      renderCandidateList();
+    }
+  });
+}
+
 function updateModalLocationFilterUI() {
   const container = document.getElementById('modal-location-filters');
   const kecWrapper = document.getElementById('wrapper-modal-filter-kec');
-  const kecSelect = document.getElementById('modal-filter-kecamatan');
-  const desaWrapper = document.getElementById('wrapper-modal-filter-desa');
-  const desaSelect = document.getElementById('modal-filter-desa');
   const hintSpan = document.getElementById('modal-filter-hint');
 
   if (!container || !STATE.modal.activeUtama) return;
+  if (!MULTI_SELECTS.modalKec) setupModalLocationFilters();
 
   const target = STATE.modal.activeUtama;
   const scope = STATE.modal.scope;
@@ -788,60 +998,37 @@ function updateModalLocationFilterUI() {
 
   if (scope === 'kecamatan') {
     kecWrapper.classList.add('hidden');
-    desaWrapper.classList.remove('hidden');
     if (hintSpan) hintSpan.textContent = `Wilayah: Kecamatan ${target.kec}`;
-
-    const desas = [...new Set(STATE.data.filter(d => d.kec === target.kec && d.status === 'PENGGANTI').map(d => d.desa))].sort();
-    desaSelect.innerHTML = `<option value="">Semua Desa di ${escapeHtml(target.kec)} (${desas.length})</option>`;
-    desas.forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = d;
-      if (STATE.modal.filterDesa === d) opt.selected = true;
-      desaSelect.appendChild(opt);
-    });
   } else if (scope === 'lintas_kecamatan') {
     kecWrapper.classList.remove('hidden');
-    desaWrapper.classList.remove('hidden');
     if (hintSpan) hintSpan.textContent = `Di luar Kecamatan ${target.kec} (opsional)`;
-
-    const kecs = getLintasKecamatanOptions(STATE.data, target);
-    kecSelect.innerHTML = `<option value="">Semua Kecamatan (${kecs.length})</option>`;
-    kecs.forEach(k => {
-      const opt = document.createElement('option');
-      opt.value = k;
-      opt.textContent = k;
-      if (STATE.modal.filterKec === k) opt.selected = true;
-      kecSelect.appendChild(opt);
-    });
-
-    updateModalDesaOptions(STATE.modal.filterKec);
   }
 }
 
-// Kecamatan choices offered on the "Lintas Kecamatan" tab (excludes the main sample's own kecamatan).
-function getLintasKecamatanOptions(data, target) {
-  return [...new Set(data.filter(d => d.kd_kec !== target.kd_kec).map(d => d.kec))].sort();
-}
+// Fill the modal kecamatan/desa dropdowns; counts = countCandidatesByLocation() for the active scope.
+function refreshModalLocationOptions(counts) {
+  const target = STATE.modal.activeUtama;
+  const scope = STATE.modal.scope;
+  if (!target || !MULTI_SELECTS.modalKec) return;
+  if (scope !== 'kecamatan' && scope !== 'lintas_kecamatan') return;
 
-function updateModalDesaOptions(selectedKec) {
-  const desaSelect = document.getElementById('modal-filter-desa');
-  if (!desaSelect) return;
+  const pengganti = getPenggantiList();
+  const isKecScope = scope === 'kecamatan';
 
-  if (!selectedKec) {
-    desaSelect.innerHTML = '<option value="">Semua Desa (Pilih kecamatan dulu)</option>';
-    return;
+  if (!isKecScope) {
+    const kecOptions = getKecamatanOptions(pengganti, target.kd_kec)
+      .map(o => ({ ...o, count: counts.byKec[o.value] || 0 }));
+    MULTI_SELECTS.modalKec.setOptions(kecOptions, `Semua Kecamatan (${kecOptions.length})`);
+    MULTI_SELECTS.modalKec.setValue(STATE.modal.filterKec);
   }
 
-  const desas = [...new Set(STATE.data.filter(d => d.kec === selectedKec && d.status === 'PENGGANTI').map(d => d.desa))].sort();
-  desaSelect.innerHTML = `<option value="">Semua Desa di ${escapeHtml(selectedKec)} (${desas.length})</option>`;
-  desas.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d;
-    opt.textContent = d;
-    if (STATE.modal.filterDesa === d) opt.selected = true;
-    desaSelect.appendChild(opt);
-  });
+  const kecs = isKecScope ? [target.kd_kec] : STATE.modal.filterKec;
+  const desaOptions = getDesaOptions(pengganti, kecs)
+    .map(o => ({ ...o, count: counts.byDesa[o.value] || 0 }));
+  const allLabel = isKecScope ? `Semua Desa di ${target.kec} (${desaOptions.length})` : `Semua Desa (${desaOptions.length})`;
+  MULTI_SELECTS.modalDesa.setOptions(desaOptions, allLabel);
+  MULTI_SELECTS.modalDesa.setValue(STATE.modal.filterDesa);
+  MULTI_SELECTS.modalDesa.setDisabled(kecs.length === 0, 'Semua Desa (pilih kecamatan dulu)');
 }
 
 const SCOPES = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
@@ -850,9 +1037,20 @@ const SCOPES = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
 function countCandidatesByScope(target, pool, opts) {
   const counts = {};
   SCOPES.forEach(scope => {
-    counts[scope] = getReplacementCandidates(target, pool, { ...opts, scope, filterKec: '', filterDesa: '' }).length;
+    counts[scope] = getReplacementCandidates(target, pool, { ...opts, scope, filterKec: [], filterDesa: [] }).length;
   });
   return counts;
+}
+
+// Candidate count per kecamatan / desa within the active scope, ignoring the location dropdowns.
+function countCandidatesByLocation(target, pool, opts) {
+  const byKec = {};
+  const byDesa = {};
+  getReplacementCandidates(target, pool, { ...opts, filterKec: [], filterDesa: [] }).forEach(c => {
+    byKec[c.kd_kec] = (byKec[c.kd_kec] || 0) + 1;
+    byDesa[desaKey(c)] = (byDesa[desaKey(c)] || 0) + 1;
+  });
+  return { byKec, byDesa };
 }
 
 function renderScopeTabCounts(counts) {
@@ -869,8 +1067,41 @@ function renderScopeTabCounts(counts) {
   });
 }
 
+// Unique desa key; desa codes repeat across kecamatan, so the kecamatan code is included.
+function desaKey(item) {
+  return `${item.kd_kec}-${item.kd_desa}`;
+}
+
+// Location filter shared by the main list and the replace modal (pure).
+// kecs: kd_kec values, desas: desaKey values. Several kecamatan act as OR; a picked desa
+// narrows only its own kecamatan, so a picked kecamatan without any picked desa stays whole.
+function matchesLocation(item, kecs, desas) {
+  if (kecs.length && !kecs.includes(item.kd_kec)) return false;
+  if (!desas.length) return true;
+  const narrowedKecs = new Set(desas.map(k => k.split('-')[0]));
+  return !narrowedKecs.has(item.kd_kec) || desas.includes(desaKey(item));
+}
+
+// Kecamatan options [{ value: kd_kec, label }] sorted by name, optionally without one kecamatan.
+function getKecamatanOptions(data, excludeKdKec) {
+  const byCode = new Map();
+  data.forEach(d => {
+    if (d.kd_kec !== excludeKdKec) byCode.set(d.kd_kec, d.kec);
+  });
+  return [...byCode].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+// Desa options [{ value: desaKey, label, group: kecamatan }] for the given kecamatan codes.
+function getDesaOptions(data, kecCodes) {
+  const byKey = new Map();
+  data.forEach(d => {
+    if (kecCodes.includes(d.kd_kec)) byKey.set(desaKey(d), { value: desaKey(d), label: d.desa, group: d.kec });
+  });
+  return [...byKey.values()].sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
+}
+
 // Filter & rank replacement candidates for a main sample (pure, no DOM access).
-// opts: { scope, filterKec, filterDesa, requireSubsektor, requireStrata }
+// opts: { scope, filterKec: kd_kec[], filterDesa: desaKey[], requireSubsektor, requireStrata }
 function getReplacementCandidates(target, pool, opts) {
   const { scope, filterKec, filterDesa, requireSubsektor, requireStrata } = opts;
 
@@ -884,13 +1115,10 @@ function getReplacementCandidates(target, pool, opts) {
       return p.kd_kec === target.kd_kec && p.kd_desa === target.kd_desa;
     } else if (scope === 'kecamatan') {
       if (p.kd_kec !== target.kd_kec) return false;
-      if (filterDesa && p.desa !== filterDesa) return false;
-      return true;
+      return matchesLocation(p, [], filterDesa || []);
     } else if (scope === 'lintas_kecamatan') {
       if (p.kd_kec === target.kd_kec) return false;
-      if (filterKec && p.kec !== filterKec) return false;
-      if (filterDesa && p.desa !== filterDesa) return false;
-      return true;
+      return matchesLocation(p, filterKec || [], filterDesa || []);
     }
     return true;
   });
@@ -929,6 +1157,7 @@ function renderCandidateList() {
 
   const candidates = getReplacementCandidates(target, allPengganti, STATE.modal);
   renderScopeTabCounts(countCandidatesByScope(target, allPengganti, STATE.modal));
+  refreshModalLocationOptions(countCandidatesByLocation(target, allPengganti, STATE.modal));
   const subWarning = document.getElementById('warning-subsektor-deviation');
   if (subWarning) subWarning.classList.toggle('hidden', STATE.modal.requireSubsektor);
   const strataWarning = document.getElementById('warning-strata-deviation');
@@ -1585,26 +1814,6 @@ function setupEventListeners() {
     });
   }
 
-  const kecSelect = document.getElementById('filter-kecamatan');
-  if (kecSelect) {
-    kecSelect.addEventListener('change', (e) => {
-      STATE.filters.kec = e.target.value;
-      STATE.filters.desa = '';
-      STATE.filters.page = 1;
-      updateDesaOptions(e.target.value);
-      renderTable();
-    });
-  }
-
-  const desaSelect = document.getElementById('filter-desa');
-  if (desaSelect) {
-    desaSelect.addEventListener('change', (e) => {
-      STATE.filters.desa = e.target.value;
-      STATE.filters.page = 1;
-      renderTable();
-    });
-  }
-
   const subSelect = document.getElementById('filter-subsektor');
   if (subSelect) {
     subSelect.addEventListener('change', (e) => {
@@ -1627,18 +1836,17 @@ function setupEventListeners() {
   if (btnResetFilter) {
     btnResetFilter.addEventListener('click', () => {
       STATE.filters.search = '';
-      STATE.filters.kec = '';
-      STATE.filters.desa = '';
+      STATE.filters.kec = [];
+      STATE.filters.desa = [];
       STATE.filters.subsektor = '';
       STATE.filters.status = 'ALL';
       STATE.filters.page = 1;
 
       document.getElementById('search-input').value = '';
-      document.getElementById('filter-kecamatan').value = '';
-      document.getElementById('filter-desa').value = '';
       document.getElementById('filter-subsektor').value = '';
       document.getElementById('filter-status').value = 'ALL';
-      updateDesaOptions('');
+      if (MULTI_SELECTS.kec) MULTI_SELECTS.kec.setValue([]);
+      refreshMainDesaFilter();
 
       renderTable();
     });
@@ -1656,24 +1864,6 @@ function setupEventListeners() {
   if (toggleStrata) {
     toggleStrata.addEventListener('change', (e) => {
       STATE.modal.requireStrata = e.target.checked;
-      renderCandidateList();
-    });
-  }
-
-  const modalKecSelect = document.getElementById('modal-filter-kecamatan');
-  if (modalKecSelect) {
-    modalKecSelect.addEventListener('change', (e) => {
-      STATE.modal.filterKec = e.target.value;
-      STATE.modal.filterDesa = '';
-      updateModalDesaOptions(e.target.value);
-      renderCandidateList();
-    });
-  }
-
-  const modalDesaSelect = document.getElementById('modal-filter-desa');
-  if (modalDesaSelect) {
-    modalDesaSelect.addEventListener('change', (e) => {
-      STATE.modal.filterDesa = e.target.value;
       renderCandidateList();
     });
   }

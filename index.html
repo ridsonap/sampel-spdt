@@ -224,19 +224,13 @@
         <!-- Filter Dropdowns -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-100">
           <div class="min-w-0">
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-kecamatan">Kecamatan</label>
-            <select id="filter-kecamatan"
-              class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
-              <option value="">Semua Kecamatan</option>
-            </select>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="ms-filter-kecamatan-btn">Kecamatan</label>
+            <div id="ms-filter-kecamatan"></div>
           </div>
 
           <div class="min-w-0">
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-desa">Desa / Kelurahan</label>
-            <select id="filter-desa" disabled
-              class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50">
-              <option value="">Semua Desa</option>
-            </select>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="ms-filter-desa-btn">Desa / Kelurahan</label>
+            <div id="ms-filter-desa"></div>
           </div>
 
           <div class="min-w-0">
@@ -339,7 +333,7 @@
       </div>
 
       <!-- Modal Body (Scrollable) -->
-      <div class="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+      <div class="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1" data-ms-bound>
         <!-- Re-replace Alert Notice (when previous candidate was disqualified) -->
         <div id="modal-replace-re-replace-notice" class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 space-y-1">
           <div class="font-bold text-xs flex items-center gap-1.5">
@@ -442,19 +436,13 @@
             <span id="modal-filter-hint" class="text-[11px] text-slate-500 font-medium">Filter wilayah sesuai kebutuhan</span>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div id="wrapper-modal-filter-kec">
-              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="modal-filter-kecamatan">Kecamatan Pengganti</label>
-              <select id="modal-filter-kecamatan"
-                class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
-                <option value="">Semua Kecamatan (11)</option>
-              </select>
+            <div id="wrapper-modal-filter-kec" class="min-w-0">
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="ms-modal-kecamatan-btn">Kecamatan Pengganti</label>
+              <div id="ms-modal-kecamatan"></div>
             </div>
-            <div id="wrapper-modal-filter-desa">
-              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="modal-filter-desa">Desa Pengganti</label>
-              <select id="modal-filter-desa"
-                class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
-                <option value="">Semua Desa</option>
-              </select>
+            <div id="wrapper-modal-filter-desa" class="min-w-0">
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="ms-modal-desa-btn">Desa Pengganti</label>
+              <div id="ms-modal-desa"></div>
             </div>
           </div>
         </div>
