@@ -462,8 +462,112 @@ function getFilteredUtamaList() {
   return list;
 }
 
+// Shared cell markup for the desktop table rows and the mobile cards.
+function renderStatusBadge(item, rep) {
+  const isReplaced = !!rep;
+  return `${isReplaced ? `
+      <div>
+        <div class="flex items-center gap-1 flex-wrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span>
+            DIGANTI ${rep.history && rep.history.length > 0 ? `(Ke-${rep.history.length + 1})` : ''}
+          </span>
+          ${rep.history && rep.history.length > 0 ? `
+            <span class="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200" title="${rep.history.length} sampel pengganti sebelumnya gugur di lapangan">
+              ${rep.history.length} Gugur
+            </span>
+          ` : ''}
+        </div>
+        <div class="text-[11px] text-slate-600 font-medium mt-1 truncate max-w-[170px]" title="${escapeHtml(rep.penggantiNama)}">
+          ➔ ${escapeHtml(rep.penggantiNama)}
+        </div>
+        <div class="text-[10px] text-slate-400 uppercase tracking-wider">${formatScopeLabel(rep.scope)}</div>
+      </div>
+    ` : `
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+        AKTIF
+      </span>
+  `}`;
+}
+
+function renderVerifyControl(item, rep) {
+  const isReplaced = !!rep;
+  return `${!isReplaced ? `
+      <span class="text-slate-300 font-mono text-xs">-</span>
+    ` : `
+      <div class="inline-flex flex-col items-center">
+        <label class="relative inline-flex items-center cursor-pointer select-none" title="${STATE.user && STATE.user.role === 'admin' ? (rep.verified ? 'Klik untuk membatalkan verifikasi' : 'Klik untuk menandai sudah dicek') : 'Hanya akun Admin yang dapat menandai verifikasi'}">
+          <input type="checkbox"
+            ${rep.verified ? 'checked' : ''}
+            ${STATE.user && STATE.user.role === 'admin' ? `onchange="toggleSampleVerification('${item.id}')"` : 'disabled'}
+            class="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 focus:ring-1 ${STATE.user && STATE.user.role === 'admin' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}" />
+        </label>
+        <span class="text-[10px] font-semibold mt-0.5 ${rep.verified ? 'text-emerald-700' : 'text-slate-400'}">
+          ${rep.verified ? '✓ Dicek' : 'Belum'}
+        </span>
+      </div>
+  `}`;
+}
+
+function renderRowAction(item, rep) {
+  const isReplaced = !!rep;
+  return `${isReplaced ? `
+      <button onclick="openDetailModal('${item.id}')"
+        class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-all shadow-sm">
+        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        Detail / Undo
+      </button>
+    ` : `
+      <button onclick="openReplaceModal('${item.id}')"
+        class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-sm">
+        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        Ganti Sampel
+      </button>
+  `}`;
+}
+
+function renderStrataBadge(item) {
+  return `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${item.strata === '1' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}">${item.strata}</span>`;
+}
+
+function renderSampleCard(item, no) {
+  const rep = STATE.replacements[item.id];
+  return `
+    <div class="p-3.5 space-y-2 ${rep ? 'bg-amber-50/40' : ''}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-semibold text-slate-900 text-sm"><span class="font-mono text-xs text-slate-400 mr-1">${no}.</span>${escapeHtml(item.nama)}</div>
+          <div class="text-xs font-mono text-indigo-700 bg-indigo-50 inline-block px-1.5 py-0.5 rounded border border-indigo-100 mt-0.5">${escapeHtml(item.kode)}</div>
+        </div>
+        <div class="shrink-0 flex items-center gap-1 text-[10px] text-slate-400 font-semibold uppercase">Strata ${renderStrataBadge(item)}</div>
+      </div>
+      <div class="text-xs text-slate-600">
+        <span class="font-medium text-slate-800">${escapeHtml(item.kec)}</span> › ${escapeHtml(item.desa)} › <span class="text-slate-500">${escapeHtml(item.sls)}</span>
+      </div>
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSubsektorBadgeClass(item.sub)}">${escapeHtml(item.sub)}</span>
+        <span class="text-[11px] text-slate-500 truncate" title="${escapeHtml(item.kbli)}">${escapeHtml(item.kd_kbli)} - ${escapeHtml(item.kbli)}</span>
+      </div>
+      <div class="flex items-end justify-between gap-2 pt-1">
+        <div class="min-w-0">${renderStatusBadge(item, rep)}</div>
+        <div class="shrink-0 flex items-center gap-3">
+          ${rep ? renderVerifyControl(item, rep) : ''}
+          ${renderRowAction(item, rep)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderTable() {
   const tbody = document.getElementById('sample-table-body');
+  const cardList = document.getElementById('sample-card-list');
   const filtered = getFilteredUtamaList();
   const total = filtered.length;
 
@@ -478,18 +582,24 @@ function renderTable() {
   renderPaginationControls(totalPages);
 
   if (paginated.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8" class="px-6 py-12 text-center text-slate-500">
+    const emptyState = `
           <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p class="font-medium">Tidak ada sampel utama yang sesuai filter.</p>
           <p class="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci atau reset filter pencarian.</p>
-        </td>
+    `;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="px-6 py-12 text-center text-slate-500">${emptyState}</td>
       </tr>
     `;
+    if (cardList) cardList.innerHTML = `<div class="px-4 py-12 text-center text-slate-500 text-sm">${emptyState}</div>`;
     return;
+  }
+
+  if (cardList) {
+    cardList.innerHTML = paginated.map((item, idx) => renderSampleCard(item, startIdx + idx + 1)).join('');
   }
 
   tbody.innerHTML = paginated.map((item, idx) => {
@@ -521,72 +631,16 @@ function renderTable() {
           </div>
         </td>
         <td class="px-4 py-3 text-center">
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${item.strata === '1' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}">
-            ${item.strata}
-          </span>
+          ${renderStrataBadge(item)}
         </td>
         <td class="px-4 py-3">
-          ${isReplaced ? `
-            <div>
-              <div class="flex items-center gap-1 flex-wrap">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span>
-                  DIGANTI ${rep.history && rep.history.length > 0 ? `(Ke-${rep.history.length + 1})` : ''}
-                </span>
-                ${rep.history && rep.history.length > 0 ? `
-                  <span class="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200" title="${rep.history.length} sampel pengganti sebelumnya gugur di lapangan">
-                    ${rep.history.length} Gugur
-                  </span>
-                ` : ''}
-              </div>
-              <div class="text-[11px] text-slate-600 font-medium mt-1 truncate max-w-[170px]" title="${escapeHtml(rep.penggantiNama)}">
-                ➔ ${escapeHtml(rep.penggantiNama)}
-              </div>
-              <div class="text-[10px] text-slate-400 uppercase tracking-wider">${formatScopeLabel(rep.scope)}</div>
-            </div>
-          ` : `
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
-              AKTIF
-            </span>
-          `}
+          ${renderStatusBadge(item, rep)}
         </td>
         <td class="px-3 py-3 text-center">
-          ${!isReplaced ? `
-            <span class="text-slate-300 font-mono text-xs">-</span>
-          ` : `
-            <div class="inline-flex flex-col items-center">
-              <label class="relative inline-flex items-center cursor-pointer select-none" title="${STATE.user && STATE.user.role === 'admin' ? (rep.verified ? 'Klik untuk membatalkan verifikasi' : 'Klik untuk menandai sudah dicek') : 'Hanya akun Admin yang dapat menandai verifikasi'}">
-                <input type="checkbox"
-                  ${rep.verified ? 'checked' : ''}
-                  ${STATE.user && STATE.user.role === 'admin' ? `onchange="toggleSampleVerification('${item.id}')"` : 'disabled'}
-                  class="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 focus:ring-1 ${STATE.user && STATE.user.role === 'admin' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}" />
-              </label>
-              <span class="text-[10px] font-semibold mt-0.5 ${rep.verified ? 'text-emerald-700' : 'text-slate-400'}">
-                ${rep.verified ? '✓ Dicek' : 'Belum'}
-              </span>
-            </div>
-          `}
+          ${renderVerifyControl(item, rep)}
         </td>
         <td class="px-4 py-3 text-right">
-          ${isReplaced ? `
-            <button onclick="openDetailModal('${item.id}')"
-              class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-all shadow-sm">
-              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              Detail / Undo
-            </button>
-          ` : `
-            <button onclick="openReplaceModal('${item.id}')"
-              class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-sm">
-              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              Ganti Sampel
-            </button>
-          `}
+          ${renderRowAction(item, rep)}
         </td>
       </tr>
     `;
@@ -604,8 +658,8 @@ function renderPaginationControls(totalPages) {
   let buttons = [];
 
   buttons.push(`
-    <button onclick="changePage(${cur - 1})" ${cur === 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-100"'}
-      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700">
+    <button onclick="changePage(${cur - 1})" ${cur === 1 ? 'disabled' : ''}
+      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700 ${cur === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100'}">
       &laquo; Prev
     </button>
   `);
@@ -622,8 +676,8 @@ function renderPaginationControls(totalPages) {
   }
 
   buttons.push(`
-    <button onclick="changePage(${cur + 1})" ${cur === totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-100"'}
-      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700">
+    <button onclick="changePage(${cur + 1})" ${cur === totalPages ? 'disabled' : ''}
+      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700 ${cur === totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100'}">
       Next &raquo;
     </button>
   `);
@@ -634,7 +688,8 @@ function renderPaginationControls(totalPages) {
 function changePage(page) {
   STATE.filters.page = page;
   renderTable();
-  window.scrollTo({ top: 380, behavior: 'smooth' });
+  const section = document.getElementById('table-section');
+  if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // Modal Pergantian Sampel Interaktif
@@ -695,14 +750,14 @@ function setModalScope(scope) {
   STATE.modal.filterKec = '';
   STATE.modal.filterDesa = '';
 
-  const tabs = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
-  tabs.forEach(t => {
+  const tabBase = 'flex items-center justify-center gap-1.5 flex-wrap px-1.5 py-1.5 text-xs rounded-lg transition-all text-center leading-tight';
+  SCOPES.forEach(t => {
     const btn = document.getElementById(`tab-scope-${t}`);
     if (btn) {
       if (t === scope) {
-        btn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-xs transition-all text-center';
+        btn.className = `${tabBase} font-semibold bg-blue-600 text-white shadow-xs`;
       } else {
-        btn.className = 'flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-all text-center';
+        btn.className = `${tabBase} font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60`;
       }
     }
   });
@@ -789,6 +844,31 @@ function updateModalDesaOptions(selectedKec) {
   });
 }
 
+const SCOPES = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
+
+// Candidate count per scope tab. Location dropdowns are ignored because they reset on tab switch.
+function countCandidatesByScope(target, pool, opts) {
+  const counts = {};
+  SCOPES.forEach(scope => {
+    counts[scope] = getReplacementCandidates(target, pool, { ...opts, scope, filterKec: '', filterDesa: '' }).length;
+  });
+  return counts;
+}
+
+function renderScopeTabCounts(counts) {
+  SCOPES.forEach(scope => {
+    const badge = document.getElementById(`tab-count-${scope}`);
+    if (!badge) return;
+    const n = counts[scope];
+    let tone;
+    if (scope === STATE.modal.scope) tone = 'bg-white text-blue-700';
+    else if (n === 0) tone = 'bg-slate-200 text-slate-500';
+    else tone = 'bg-blue-100 text-blue-700';
+    badge.textContent = n;
+    badge.className = `inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-px rounded-full text-[10px] font-bold font-mono ${tone}`;
+  });
+}
+
 // Filter & rank replacement candidates for a main sample (pure, no DOM access).
 // opts: { scope, filterKec, filterDesa, requireSubsektor, requireStrata }
 function getReplacementCandidates(target, pool, opts) {
@@ -848,6 +928,7 @@ function renderCandidateList() {
   const allPengganti = getPenggantiList().filter(p => !usedPenggantiIds.has(p.id));
 
   const candidates = getReplacementCandidates(target, allPengganti, STATE.modal);
+  renderScopeTabCounts(countCandidatesByScope(target, allPengganti, STATE.modal));
   const subWarning = document.getElementById('warning-subsektor-deviation');
   if (subWarning) subWarning.classList.toggle('hidden', STATE.modal.requireSubsektor);
   const strataWarning = document.getElementById('warning-strata-deviation');
@@ -1641,7 +1722,7 @@ function showToast(message, type = 'info') {
   if (!toast || !toastMsg) return;
 
   toastMsg.textContent = message;
-  toast.className = `fixed bottom-5 right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 ${
+  toast.className = `fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-5 sm:right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 ${
     type === 'success'
       ? 'bg-emerald-900 text-white border-emerald-700'
       : type === 'error'

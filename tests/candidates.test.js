@@ -8,7 +8,7 @@ const appSource = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const sandbox = { document: { addEventListener() {} }, console };
 vm.createContext(sandbox);
 vm.runInContext(appSource, sandbox);
-const { getReplacementCandidates, getLintasKecamatanOptions } = sandbox;
+const { getReplacementCandidates, getLintasKecamatanOptions, countCandidatesByScope } = sandbox;
 
 const unit = (id, kd_kec, kec, kd_desa, desa, kd_sls, sub, strata, kd_kbli = '01110') => ({
   id, kd_kec, kec, kd_desa, desa, kd_sls, sub, strata, kd_kbli
@@ -99,4 +99,16 @@ test('requireStrata off admits other strata but still ranks same strata first', 
   ];
   const relaxed = getReplacementCandidates(target, strataPool, opts({ scope: 'desa', requireStrata: false }));
   assert.deepEqual(relaxed.map(c => c.id), ['far-strata1', 'near-strata2']);
+});
+
+test('countCandidatesByScope reports candidates per tab, ignoring the location dropdowns', () => {
+  const counts = countCandidatesByScope(target, pool, opts({ scope: 'lintas_kecamatan', filterKec: 'BENTENG', filterDesa: 'DESA Y' }));
+  assert.deepEqual({ ...counts }, { sls: 1, desa: 2, kecamatan: 3, lintas_kecamatan: 2 });
+});
+
+test('countCandidatesByScope follows the subsektor and strata toggles', () => {
+  const mixedPool = [...pool, unit('same-sls-strata2', '010', 'PASIMARANNU', '005', 'BATU BINGKUNG', '000202', 'HORTIKULTURA', '2')];
+  assert.equal(countCandidatesByScope(target, mixedPool, opts()).sls, 1);
+  assert.equal(countCandidatesByScope(target, mixedPool, opts({ requireStrata: false })).sls, 2);
+  assert.equal(countCandidatesByScope(target, mixedPool, opts({ requireStrata: false, requireSubsektor: false })).sls, 3);
 });
