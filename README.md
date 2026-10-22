@@ -77,7 +77,8 @@ Sistem membedakan hak akses berdasarkan peran akun:
   - Input & pembatalan pergantian sampel di lapangan.
   - Penanganan **Ganti Ulang (Pengganti Tidak Eligible)**: jika sampel pengganti pertama ($P_1$) tidak eligible (menolak, pindah, tutup usaha, dll.), petugas dapat menggugurkannya dan langsung memilih $P_2$. Sampel gugur terkunci permanen dari cadangan dan rekam jejaknya tersimpan di audit trail.
   - Pencarian dan filter kandidat pengganti sesuai 4 ruang lingkup spasial, dilengkapi **filter dropdown Kecamatan & Desa** pada scope kecamatan/lintas kecamatan.
+  - **Unduh Excel Rekomendasi Pengganti**: Mengunduh daftar kandidat sampel pengganti (lengkap 4 sheet: 1 SLS, 1 Desa, 1 Kecamatan, Lintas Kecamatan, dan sheet gabungan) langsung dari modal pergantian untuk pegangan di lapangan.
   - Melihat status checklist verifikasi admin secara read-only.
-  - *Catatan*: Fitur pengunduhan ekspor file Excel dikunci khusus untuk Administrator guna mencegah kebocoran/duplikasi pelaporan sepihak.
+  - *Catatan*: Fitur pengunduhan ekspor laporan resmi (Berita Acara & DSRT Mutakhir) dikunci khusus untuk Administrator guna mencegah duplikasi pelaporan sepihak, sedangkan unduh daftar rekomendasi pengganti dapat diakses petugas untuk operasional lapangan.
 
 *(Informasi kredensial ini tidak ditampilkan di layar login publik untuk keamanan data).*

@@ -82,15 +82,15 @@ Sistem menyediakan 4 tab/opsi ruang lingkup pemilihan:
 | **1. Dalam 1 SLS** | `Kode Kec` SAMA, `Kode Desa` SAMA, `Kode SLS` SAMA | Prioritas 1 (Utama) | Pengganti berada di lingkungan rukun tetangga/dusun yang sama persis. |
 | **2. 1 Desa** | `Kode Kec` SAMA, `Kode Desa` SAMA (SLS boleh beda) | Prioritas 2 | Digunakan jika cadangan dalam SLS habis. |
 | **3. 1 Kecamatan** | `Kode Kec` SAMA (Desa & SLS boleh beda) | Prioritas 3 | Digunakan jika cadangan dalam 1 desa tidak tersedia. |
-| **4. Lintas Kecamatan** | Antar kecamatan dalam Kab. Kepulauan Selayar | Prioritas 4 (Darurat) | Digunakan jika seluruh cadangan di kecamatan asal telah habis/tidak sesuai. |
+| **4. Lintas Kecamatan** | `Kode Kec` BEDA (kecamatan asal tidak termasuk), dalam Kab. Kepulauan Selayar | Prioritas 4 (Darurat) | Digunakan jika seluruh cadangan di kecamatan asal telah habis/tidak sesuai. |
 
 ### 4.3 Aturan Kesesuaian Karakteristik (Matching Rules)
 1. **Kesesuaian Subsektor (Wajib / Strict Match by Default)**:
    - Sampel Utama Subsektor `HORTIKULTURA` hanya boleh diganti oleh kandidat `HORTIKULTURA`.
    - Tersedia toggle "Wajib Subsektor Sama" (default: Aktif). Jika dimatikan oleh supervisor dengan otorisasi khusus, sistem menampilkan peringatan deviasi metodologi.
-2. **Kesesuaian Strata (Prioritas / Recommended Match)**:
-   - Sampel Utama Strata `1` diutamakan diganti oleh Strata `1`, Strata `2` dengan Strata `2`.
-   - Kandidat dengan strata identik otomatis diberi skor kecocokan lebih tinggi dan ditempatkan di urutan teratas.
+2. **Kesesuaian Strata (Wajib / Strict Match by Default)**:
+   - Sampel Utama Strata `1` hanya boleh diganti oleh Strata `1`, Strata `2` dengan Strata `2`.
+   - Tersedia toggle "Wajib Strata Sama" (default: Aktif). Jika dimatikan oleh supervisor dengan otorisasi khusus, sistem menampilkan peringatan deviasi metodologi; kandidat dengan strata identik tetap diberi skor lebih tinggi dan ditempatkan di urutan teratas.
 3. **Kesesuaian KBLI 5-Digit (Nice to Have)**:
    - Menampilkan badge "KBLI Identik" jika kode 5 digit (misal `01220` Pertanian Buah Tropis) sama persis.
 
@@ -142,8 +142,9 @@ Kandidat teratas adalah yang memiliki skor tertinggi (100–120 poin).
 ### FR-3: Filter & Pencarian Cepat
 - **Pencarian Bebas (Live Search)**: Nama Kepala Keluarga, Kode Identitas (misal `7301010 - U - 94`), atau Alamat.
 - **Filter Dropdown**:
-  - Filter Kecamatan (11 Kecamatan: Benteng, Bontoharu, Bontomanai, Bontomatene, Bontosikuyu, Buki, Pasilambena, Pasimarannu, Pasimassunggu, Pasimassunggu Timur, Takabonerate).
-  - Filter Desa (dinamis sesuai kecamatan yang dipilih).
+  - Filter Kecamatan, **multi-pilih** (11 Kecamatan: Benteng, Bontoharu, Bontomanai, Bontomatene, Bontosikuyu, Buki, Pasilambena, Pasimarannu, Pasimassunggu, Pasimassunggu Timur, Takabonerate).
+  - Filter Desa, **multi-pilih** (dinamis sesuai kecamatan yang dipilih, dikelompokkan per kecamatan).
+  - Aturan gabungan: beberapa kecamatan digabung dengan OR; desa terpilih hanya mempersempit kecamatan asalnya, sehingga kecamatan terpilih yang tidak memiliki desa terpilih tetap ditampilkan seluruhnya.
   - Filter Subsektor (Hortikultura, Kehutanan, Perikanan Budidaya, Perikanan Tangkap, Perkebunan, Peternakan).
   - Filter Status Pergantian (Semua / Belum Diganti / Sudah Diganti / Sudah Dicek Admin / Belum Dicek Admin).
 
@@ -174,15 +175,25 @@ Saat tombol "Ganti Sampel" diklik:
   3. Tab `1 Kecamatan`.
   4. Tab `Lintas Kecamatan`.
 - **Filter Wilayah Pengganti Dinamis (Kecamatan & Desa)**:
-  - Pada tab `1 Kecamatan`: Dropdown desa aktif untuk mempersempit kandidat ke desa tertentu dalam kecamatan tersebut.
-  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan (11 kecamatan) dan desa aktif untuk memilih wilayah pengganti secara spesifik.
+  - Pada tab `1 Kecamatan`: Dropdown desa **multi-pilih** untuk mempersempit kandidat ke satu atau beberapa desa dalam kecamatan tersebut.
+  - Pada tab `Lintas Kecamatan`: Dropdown kecamatan **multi-pilih** (10 kecamatan lain, tanpa kecamatan asal) dan desa **multi-pilih** untuk memilih wilayah pengganti secara spesifik (aturan gabungan sama dengan FR-3).
+  - Setiap opsi kecamatan/desa menampilkan jumlah kandidat yang memenuhi syarat (mengikuti toggle subsektor & strata).
 - **Pengaturan Kesesuaian**:
   - Checkbox toggle "Wajib Subsektor Sama" (default checked).
-  - Checkbox toggle "Prioritaskan Strata Sama" (default checked).
+  - Checkbox toggle "Wajib Strata Sama" (default checked).
 - **Daftar Rekomendasi Kandidat**:
   - Kartu/baris kandidat menampilkan: Nama KK, Kode Identitas, Alamat SLS/Desa, Subsektor, Strata, KBLI.
   - Badge kesesuaian: `Subsektor Cocok`, `Strata Cocok`, `SLS Cocok`.
   - Tombol **"Pilih Pengganti Ini"**.
+  - **Fitur Ekspor Excel Rekomendasi Pengganti (.xlsx)**:
+    - Tombol "Unduh Excel Pengganti (.xlsx)" tersedia di header list kandidat dan footer modal.
+    - Menghasilkan berkas Excel terstruktur (`Daftar_Sampel_Pengganti_[KODE]_[TGL].xlsx`) dengan 6 sheet:
+      1. `Ringkasan Sampel Utama`: Profil sampel yang diganti & ringkasan jumlah kandidat per ruang lingkup.
+      2. `1. Dalam 1 SLS`: Daftar kandidat pengganti dalam SLS yang sama.
+      3. `2. 1 Desa`: Daftar kandidat pengganti dalam Desa yang sama.
+      4. `3. 1 Kecamatan`: Daftar kandidat pengganti dalam Kecamatan yang sama.
+      5. `4. Lintas Kecamatan`: Daftar kandidat pengganti di luar Kecamatan asal.
+      6. `Semua 4 Ruang Lingkup`: Seluruh kandidat lintas 4 ruang lingkup yang diurutkan berdasarkan skor rekomendasi tertinggi.
 - **Konfirmasi Aksi**: Modal konfirmasi sebelum pergantian diterapkan permanen ke state aplikasi.
 
 ### FR-6: Penguncian Status & Pencegahan Duplikasi

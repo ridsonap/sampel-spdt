@@ -11,8 +11,8 @@ const STATE = {
   cloudSync: false,    // Indikator status koneksi ke cloud (Vercel KV)
   filters: {
     search: '',
-    kec: '',
-    desa: '',
+    kec: [],           // kd_kec terpilih (multi)
+    desa: [],          // desaKey terpilih (multi), lihat desaKey()
     subsektor: '',
     status: 'ALL',     // ALL, BELUM_DIGANTI, SUDAH_DIGANTI
     page: 1,
@@ -23,10 +23,10 @@ const STATE = {
     activeDisqualifyUtamaId: null,
     reReplaceContext: null, // { utamaId, disqualifiedEntry }
     scope: 'sls',      // sls, desa, kecamatan, lintas_kecamatan
-    filterKec: '',     // Filter kecamatan pilihan di modal
-    filterDesa: '',    // Filter desa pilihan di modal
+    filterKec: [],     // Filter kecamatan pilihan di modal (multi, kd_kec)
+    filterDesa: [],    // Filter desa pilihan di modal (multi, desaKey)
     requireSubsektor: true,
-    prioritizeStrata: true,
+    requireStrata: true,
     alasan: 'Responden Menolak (Refusal)',
     catatan: ''
   }
@@ -389,36 +389,228 @@ function renderMetrics() {
   }
 }
 
-function renderKecamatanOptions() {
-  const kecSelect = document.getElementById('filter-kecamatan');
-  const kecamatanList = [...new Set(STATE.data.map(d => d.kec))].sort();
+// Multi-select dropdown (vanilla, no dependency)
+const MULTI_SELECTS = {};
+const OPEN_MULTI_SELECTS = new Set();
 
-  kecSelect.innerHTML = '<option value="">Semua Kecamatan (11)</option>';
-  kecamatanList.forEach(k => {
-    const opt = document.createElement('option');
-    opt.value = k;
-    opt.textContent = k;
-    kecSelect.appendChild(opt);
+// Builds a checkbox dropdown inside the element `rootId`.
+// config: { unit, searchPlaceholder, buttonBg, onChange(values) }
+function createMultiSelect(rootId, config) {
+  const root = document.getElementById(rootId);
+  if (!root) return null;
+
+  const state = { options: [], values: [], allLabel: 'Semua', disabled: false, disabledLabel: '', query: '' };
+  const buttonBg = config.buttonBg || 'bg-slate-50';
+  const buttonBase = 'w-full flex items-center justify-between gap-1 px-2.5 py-1.5 border rounded-lg text-xs font-medium text-left focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed';
+
+  root.classList.add('relative');
+  root.innerHTML = `
+    <button type="button" id="${rootId}-btn" data-ms-toggle aria-haspopup="listbox" aria-expanded="false"
+      class="${buttonBase}">
+      <span data-ms-summary class="truncate"></span>
+      <svg class="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+    <div data-ms-panel class="hidden absolute z-40 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg">
+      <div class="p-2 border-b border-slate-100 space-y-1.5">
+        <input type="text" data-ms-search placeholder="${escapeHtml(config.searchPlaceholder || 'Cari...')}"
+          class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-blue-500" />
+        <div class="flex items-center justify-between text-[11px] font-semibold">
+          <button type="button" data-ms-all class="text-blue-600 hover:text-blue-800">Pilih semua</button>
+          <button type="button" data-ms-clear class="text-slate-500 hover:text-slate-800">Kosongkan</button>
+        </div>
+      </div>
+      <div data-ms-list role="listbox" aria-multiselectable="true" class="max-h-60 overflow-y-auto py-1"></div>
+    </div>
+  `;
+
+  const toggle = root.querySelector('[data-ms-toggle]');
+  const summary = root.querySelector('[data-ms-summary]');
+  const panel = root.querySelector('[data-ms-panel]');
+  const search = root.querySelector('[data-ms-search]');
+  const list = root.querySelector('[data-ms-list]');
+
+  const visibleOptions = () => {
+    const q = state.query.toLowerCase();
+    if (!q) return state.options;
+    return state.options.filter(o => o.label.toLowerCase().includes(q) || (o.group && o.group.toLowerCase().includes(q)));
+  };
+
+  const renderSummary = () => {
+    const n = state.values.length;
+    let text;
+    if (state.disabled) text = state.disabledLabel;
+    else if (n === 0) text = state.allLabel;
+    else if (n === 1) {
+      const opt = state.options.find(o => o.value === state.values[0]);
+      text = opt ? opt.label : state.values[0];
+    } else text = `${n} ${config.unit} dipilih`;
+    summary.textContent = text;
+    toggle.title = n > 1 ? state.options.filter(o => state.values.includes(o.value)).map(o => o.label).join(', ') : '';
+    toggle.disabled = state.disabled;
+    const tone = n > 0 && !state.disabled
+      ? 'bg-blue-50 border-blue-300 text-blue-800'
+      : `${buttonBg} border-slate-200 text-slate-700`;
+    toggle.className = `${buttonBase} ${tone}`;
+  };
+
+  const renderList = () => {
+    const scrollTop = list.scrollTop;
+    const opts = visibleOptions();
+    const showGroups = new Set(state.options.map(o => o.group).filter(Boolean)).size > 1;
+    let lastGroup = null;
+    const html = [];
+    opts.forEach(o => {
+      if (showGroups && o.group !== lastGroup) {
+        lastGroup = o.group;
+        html.push(`<div class="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">${escapeHtml(o.group)}</div>`);
+      }
+      html.push(`
+        <label class="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer">
+          <input type="checkbox" value="${escapeHtml(o.value)}" ${state.values.includes(o.value) ? 'checked' : ''}
+            class="w-3.5 h-3.5 shrink-0 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+          <span class="truncate">${escapeHtml(o.label)}</span>
+          ${o.count !== undefined ? `<span class="ml-auto pl-2 shrink-0 text-[10px] font-mono font-semibold ${o.count ? 'text-blue-600' : 'text-slate-300'}">${o.count}</span>` : ''}
+        </label>
+      `);
+    });
+    list.innerHTML = html.length ? html.join('') : '<div class="px-3 py-3 text-xs text-slate-400 text-center">Tidak ada hasil</div>';
+    list.scrollTop = scrollTop;
+    search.classList.toggle('hidden', state.options.length <= 7);
+  };
+
+  // Keep the panel inside the viewport (or the nearest [data-ms-bound] container, e.g. a modal body).
+  const positionPanel = () => {
+    const btnRect = toggle.getBoundingClientRect();
+    const boundEl = root.closest('[data-ms-bound]');
+    const bound = boundEl ? boundEl.getBoundingClientRect() : { left: 0, right: window.innerWidth };
+    const maxWidth = bound.right - bound.left - 16;
+    const width = Math.min(Math.max(btnRect.width, 256), maxWidth);
+    let left = 0;
+    if (btnRect.left + width > bound.right - 8) left = bound.right - 8 - width - btnRect.left;
+    panel.style.width = `${width}px`;
+    panel.style.left = `${left}px`;
+  };
+
+  const close = () => {
+    panel.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'false');
+    OPEN_MULTI_SELECTS.delete(api);
+  };
+
+  const open = () => {
+    OPEN_MULTI_SELECTS.forEach(ms => { if (ms !== api) ms.close(); });
+    state.query = '';
+    search.value = '';
+    renderList();
+    panel.classList.remove('hidden');
+    positionPanel();
+    toggle.setAttribute('aria-expanded', 'true');
+    OPEN_MULTI_SELECTS.add(api);
+  };
+
+  const commit = values => {
+    state.values = values;
+    renderSummary();
+    renderList();
+    config.onChange([...state.values]);
+  };
+
+  toggle.addEventListener('click', () => (panel.classList.contains('hidden') ? open() : close()));
+  search.addEventListener('input', () => { state.query = search.value.trim(); renderList(); });
+  list.addEventListener('change', e => {
+    const cb = e.target;
+    if (cb.type !== 'checkbox') return;
+    const next = cb.checked ? [...state.values, cb.value] : state.values.filter(v => v !== cb.value);
+    commit(next);
+  });
+  root.querySelector('[data-ms-all]').addEventListener('click', () => {
+    commit([...new Set([...state.values, ...visibleOptions().map(o => o.value)])]);
+  });
+  root.querySelector('[data-ms-clear]').addEventListener('click', () => commit([]));
+
+  const api = {
+    root,
+    close,
+    focus: () => toggle.focus(),
+    getValue: () => [...state.values],
+    setOptions(options, allLabel) {
+      state.options = options;
+      if (allLabel) state.allLabel = allLabel;
+      const valid = new Set(options.map(o => o.value));
+      state.values = state.values.filter(v => valid.has(v));
+      renderSummary();
+      renderList();
+    },
+    setValue(values) {
+      state.values = [...values];
+      renderSummary();
+      renderList();
+    },
+    setDisabled(disabled, label) {
+      state.disabled = disabled;
+      state.disabledLabel = label || '';
+      if (disabled) close();
+      renderSummary();
+    }
+  };
+
+  renderSummary();
+  return api;
+}
+
+document.addEventListener('click', e => {
+  OPEN_MULTI_SELECTS.forEach(ms => { if (!ms.root.contains(e.target)) ms.close(); });
+});
+
+// Listen on document: clicking a checkbox label does not move focus into the dropdown.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || OPEN_MULTI_SELECTS.size === 0) return;
+  OPEN_MULTI_SELECTS.forEach(ms => {
+    ms.close();
+    ms.focus();
+  });
+});
+
+function setupMainLocationFilters() {
+  MULTI_SELECTS.kec = createMultiSelect('ms-filter-kecamatan', {
+    unit: 'kecamatan',
+    searchPlaceholder: 'Cari kecamatan...',
+    onChange: values => {
+      STATE.filters.kec = values;
+      STATE.filters.desa = STATE.filters.desa.filter(k => values.includes(k.split('-')[0]));
+      refreshMainDesaFilter();
+      STATE.filters.page = 1;
+      renderTable();
+    }
+  });
+  MULTI_SELECTS.desa = createMultiSelect('ms-filter-desa', {
+    unit: 'desa',
+    searchPlaceholder: 'Cari desa...',
+    onChange: values => {
+      STATE.filters.desa = values;
+      STATE.filters.page = 1;
+      renderTable();
+    }
   });
 }
 
-function updateDesaOptions(selectedKec) {
-  const desaSelect = document.getElementById('filter-desa');
-  if (!selectedKec) {
-    desaSelect.innerHTML = '<option value="">Semua Desa</option>';
-    desaSelect.disabled = true;
-    return;
-  }
+function renderKecamatanOptions() {
+  if (!MULTI_SELECTS.kec) setupMainLocationFilters();
+  const kecs = getKecamatanOptions(getUtamaList());
+  MULTI_SELECTS.kec.setOptions(kecs, `Semua Kecamatan (${kecs.length})`);
+  MULTI_SELECTS.kec.setValue(STATE.filters.kec);
+  refreshMainDesaFilter();
+}
 
-  const desas = [...new Set(STATE.data.filter(d => d.kec === selectedKec).map(d => d.desa))].sort();
-  desaSelect.innerHTML = '<option value="">Semua Desa (' + desas.length + ')</option>';
-  desas.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d;
-    opt.textContent = d;
-    desaSelect.appendChild(opt);
-  });
-  desaSelect.disabled = false;
+function refreshMainDesaFilter() {
+  const ms = MULTI_SELECTS.desa;
+  if (!ms) return;
+  const options = getDesaOptions(getUtamaList(), STATE.filters.kec);
+  ms.setOptions(options, `Semua Desa (${options.length})`);
+  ms.setValue(STATE.filters.desa);
+  ms.setDisabled(STATE.filters.kec.length === 0, 'Pilih kecamatan dulu');
 }
 
 // Filter & Table
@@ -437,12 +629,8 @@ function getFilteredUtamaList() {
     );
   }
 
-  if (kec) {
-    list = list.filter(item => item.kec === kec);
-  }
-
-  if (desa) {
-    list = list.filter(item => item.desa === desa);
+  if (kec.length || desa.length) {
+    list = list.filter(item => matchesLocation(item, kec, desa));
   }
 
   if (subsektor) {
@@ -462,8 +650,112 @@ function getFilteredUtamaList() {
   return list;
 }
 
+// Shared cell markup for the desktop table rows and the mobile cards.
+function renderStatusBadge(item, rep) {
+  const isReplaced = !!rep;
+  return `${isReplaced ? `
+      <div>
+        <div class="flex items-center gap-1 flex-wrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span>
+            DIGANTI ${rep.history && rep.history.length > 0 ? `(Ke-${rep.history.length + 1})` : ''}
+          </span>
+          ${rep.history && rep.history.length > 0 ? `
+            <span class="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200" title="${rep.history.length} sampel pengganti sebelumnya gugur di lapangan">
+              ${rep.history.length} Gugur
+            </span>
+          ` : ''}
+        </div>
+        <div class="text-[11px] text-slate-600 font-medium mt-1 truncate max-w-[170px]" title="${escapeHtml(rep.penggantiNama)}">
+          ➔ ${escapeHtml(rep.penggantiNama)}
+        </div>
+        <div class="text-[10px] text-slate-400 uppercase tracking-wider">${formatScopeLabel(rep.scope)}</div>
+      </div>
+    ` : `
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+        AKTIF
+      </span>
+  `}`;
+}
+
+function renderVerifyControl(item, rep) {
+  const isReplaced = !!rep;
+  return `${!isReplaced ? `
+      <span class="text-slate-300 font-mono text-xs">-</span>
+    ` : `
+      <div class="inline-flex flex-col items-center">
+        <label class="relative inline-flex items-center cursor-pointer select-none" title="${STATE.user && STATE.user.role === 'admin' ? (rep.verified ? 'Klik untuk membatalkan verifikasi' : 'Klik untuk menandai sudah dicek') : 'Hanya akun Admin yang dapat menandai verifikasi'}">
+          <input type="checkbox"
+            ${rep.verified ? 'checked' : ''}
+            ${STATE.user && STATE.user.role === 'admin' ? `onchange="toggleSampleVerification('${item.id}')"` : 'disabled'}
+            class="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 focus:ring-1 ${STATE.user && STATE.user.role === 'admin' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}" />
+        </label>
+        <span class="text-[10px] font-semibold mt-0.5 ${rep.verified ? 'text-emerald-700' : 'text-slate-400'}">
+          ${rep.verified ? '✓ Dicek' : 'Belum'}
+        </span>
+      </div>
+  `}`;
+}
+
+function renderRowAction(item, rep) {
+  const isReplaced = !!rep;
+  return `${isReplaced ? `
+      <button onclick="openDetailModal('${item.id}')"
+        class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-all shadow-sm">
+        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        Detail / Undo
+      </button>
+    ` : `
+      <button onclick="openReplaceModal('${item.id}')"
+        class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-sm">
+        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        Ganti Sampel
+      </button>
+  `}`;
+}
+
+function renderStrataBadge(item) {
+  return `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${item.strata === '1' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}">${item.strata}</span>`;
+}
+
+function renderSampleCard(item, no) {
+  const rep = STATE.replacements[item.id];
+  return `
+    <div class="p-3.5 space-y-2 ${rep ? 'bg-amber-50/40' : ''}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-semibold text-slate-900 text-sm"><span class="font-mono text-xs text-slate-400 mr-1">${no}.</span>${escapeHtml(item.nama)}</div>
+          <div class="text-xs font-mono text-indigo-700 bg-indigo-50 inline-block px-1.5 py-0.5 rounded border border-indigo-100 mt-0.5">${escapeHtml(item.kode)}</div>
+        </div>
+        <div class="shrink-0 flex items-center gap-1 text-[10px] text-slate-400 font-semibold uppercase">Strata ${renderStrataBadge(item)}</div>
+      </div>
+      <div class="text-xs text-slate-600">
+        <span class="font-medium text-slate-800">${escapeHtml(item.kec)}</span> › ${escapeHtml(item.desa)} › <span class="text-slate-500">${escapeHtml(item.sls)}</span>
+      </div>
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSubsektorBadgeClass(item.sub)}">${escapeHtml(item.sub)}</span>
+        <span class="text-[11px] text-slate-500 truncate" title="${escapeHtml(item.kbli)}">${escapeHtml(item.kd_kbli)} - ${escapeHtml(item.kbli)}</span>
+      </div>
+      <div class="flex items-end justify-between gap-2 pt-1">
+        <div class="min-w-0">${renderStatusBadge(item, rep)}</div>
+        <div class="shrink-0 flex items-center gap-3">
+          ${rep ? renderVerifyControl(item, rep) : ''}
+          ${renderRowAction(item, rep)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderTable() {
   const tbody = document.getElementById('sample-table-body');
+  const cardList = document.getElementById('sample-card-list');
   const filtered = getFilteredUtamaList();
   const total = filtered.length;
 
@@ -478,18 +770,24 @@ function renderTable() {
   renderPaginationControls(totalPages);
 
   if (paginated.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8" class="px-6 py-12 text-center text-slate-500">
+    const emptyState = `
           <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p class="font-medium">Tidak ada sampel utama yang sesuai filter.</p>
           <p class="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci atau reset filter pencarian.</p>
-        </td>
+    `;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="px-6 py-12 text-center text-slate-500">${emptyState}</td>
       </tr>
     `;
+    if (cardList) cardList.innerHTML = `<div class="px-4 py-12 text-center text-slate-500 text-sm">${emptyState}</div>`;
     return;
+  }
+
+  if (cardList) {
+    cardList.innerHTML = paginated.map((item, idx) => renderSampleCard(item, startIdx + idx + 1)).join('');
   }
 
   tbody.innerHTML = paginated.map((item, idx) => {
@@ -521,72 +819,16 @@ function renderTable() {
           </div>
         </td>
         <td class="px-4 py-3 text-center">
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${item.strata === '1' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}">
-            ${item.strata}
-          </span>
+          ${renderStrataBadge(item)}
         </td>
         <td class="px-4 py-3">
-          ${isReplaced ? `
-            <div>
-              <div class="flex items-center gap-1 flex-wrap">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span>
-                  DIGANTI ${rep.history && rep.history.length > 0 ? `(Ke-${rep.history.length + 1})` : ''}
-                </span>
-                ${rep.history && rep.history.length > 0 ? `
-                  <span class="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200" title="${rep.history.length} sampel pengganti sebelumnya gugur di lapangan">
-                    ${rep.history.length} Gugur
-                  </span>
-                ` : ''}
-              </div>
-              <div class="text-[11px] text-slate-600 font-medium mt-1 truncate max-w-[170px]" title="${escapeHtml(rep.penggantiNama)}">
-                ➔ ${escapeHtml(rep.penggantiNama)}
-              </div>
-              <div class="text-[10px] text-slate-400 uppercase tracking-wider">${formatScopeLabel(rep.scope)}</div>
-            </div>
-          ` : `
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
-              AKTIF
-            </span>
-          `}
+          ${renderStatusBadge(item, rep)}
         </td>
         <td class="px-3 py-3 text-center">
-          ${!isReplaced ? `
-            <span class="text-slate-300 font-mono text-xs">-</span>
-          ` : `
-            <div class="inline-flex flex-col items-center">
-              <label class="relative inline-flex items-center cursor-pointer select-none" title="${STATE.user && STATE.user.role === 'admin' ? (rep.verified ? 'Klik untuk membatalkan verifikasi' : 'Klik untuk menandai sudah dicek') : 'Hanya akun Admin yang dapat menandai verifikasi'}">
-                <input type="checkbox"
-                  ${rep.verified ? 'checked' : ''}
-                  ${STATE.user && STATE.user.role === 'admin' ? `onchange="toggleSampleVerification('${item.id}')"` : 'disabled'}
-                  class="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 focus:ring-1 ${STATE.user && STATE.user.role === 'admin' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}" />
-              </label>
-              <span class="text-[10px] font-semibold mt-0.5 ${rep.verified ? 'text-emerald-700' : 'text-slate-400'}">
-                ${rep.verified ? '✓ Dicek' : 'Belum'}
-              </span>
-            </div>
-          `}
+          ${renderVerifyControl(item, rep)}
         </td>
         <td class="px-4 py-3 text-right">
-          ${isReplaced ? `
-            <button onclick="openDetailModal('${item.id}')"
-              class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-all shadow-sm">
-              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              Detail / Undo
-            </button>
-          ` : `
-            <button onclick="openReplaceModal('${item.id}')"
-              class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-sm">
-              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              Ganti Sampel
-            </button>
-          `}
+          ${renderRowAction(item, rep)}
         </td>
       </tr>
     `;
@@ -604,8 +846,8 @@ function renderPaginationControls(totalPages) {
   let buttons = [];
 
   buttons.push(`
-    <button onclick="changePage(${cur - 1})" ${cur === 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-100"'}
-      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700">
+    <button onclick="changePage(${cur - 1})" ${cur === 1 ? 'disabled' : ''}
+      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700 ${cur === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100'}">
       &laquo; Prev
     </button>
   `);
@@ -622,8 +864,8 @@ function renderPaginationControls(totalPages) {
   }
 
   buttons.push(`
-    <button onclick="changePage(${cur + 1})" ${cur === totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-100"'}
-      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700">
+    <button onclick="changePage(${cur + 1})" ${cur === totalPages ? 'disabled' : ''}
+      class="px-2.5 py-1 text-xs border border-slate-200 rounded text-slate-700 ${cur === totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100'}">
       Next &raquo;
     </button>
   `);
@@ -634,7 +876,8 @@ function renderPaginationControls(totalPages) {
 function changePage(page) {
   STATE.filters.page = page;
   renderTable();
-  window.scrollTo({ top: 380, behavior: 'smooth' });
+  const section = document.getElementById('table-section');
+  if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // Modal Pergantian Sampel Interaktif
@@ -644,10 +887,10 @@ function openReplaceModal(utamaId) {
 
   STATE.modal.activeUtama = item;
   STATE.modal.scope = 'sls';
-  STATE.modal.filterKec = '';
-  STATE.modal.filterDesa = '';
+  STATE.modal.filterKec = [];
+  STATE.modal.filterDesa = [];
   STATE.modal.requireSubsektor = true;
-  STATE.modal.prioritizeStrata = true;
+  STATE.modal.requireStrata = true;
   STATE.modal.alasan = 'Responden Menolak (Refusal)';
   STATE.modal.catatan = '';
 
@@ -661,7 +904,7 @@ function openReplaceModal(utamaId) {
   document.getElementById('modal-input-alasan').value = STATE.modal.alasan;
   document.getElementById('modal-input-catatan').value = '';
   document.getElementById('toggle-req-subsektor').checked = true;
-  document.getElementById('toggle-prio-strata').checked = true;
+  document.getElementById('toggle-req-strata').checked = true;
 
   // Cek apakah ini mode ganti ulang (setelah pengganti sebelumnya gugur)
   const noticeEl = document.getElementById('modal-replace-re-replace-notice');
@@ -685,24 +928,26 @@ function openReplaceModal(utamaId) {
 function closeReplaceModal() {
   document.getElementById('modal-replace').classList.add('hidden');
   STATE.modal.activeUtama = null;
-  STATE.modal.filterKec = '';
-  STATE.modal.filterDesa = '';
+  STATE.modal.filterKec = [];
+  STATE.modal.filterDesa = [];
   STATE.modal.reReplaceContext = null;
+  if (MULTI_SELECTS.modalKec) MULTI_SELECTS.modalKec.close();
+  if (MULTI_SELECTS.modalDesa) MULTI_SELECTS.modalDesa.close();
 }
 
 function setModalScope(scope) {
   STATE.modal.scope = scope;
-  STATE.modal.filterKec = '';
-  STATE.modal.filterDesa = '';
+  STATE.modal.filterKec = [];
+  STATE.modal.filterDesa = [];
 
-  const tabs = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
-  tabs.forEach(t => {
+  const tabBase = 'flex items-center justify-center gap-1.5 flex-wrap px-1.5 py-1.5 text-xs rounded-lg transition-all text-center leading-tight';
+  SCOPES.forEach(t => {
     const btn = document.getElementById(`tab-scope-${t}`);
     if (btn) {
       if (t === scope) {
-        btn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-xs transition-all text-center';
+        btn.className = `${tabBase} font-semibold bg-blue-600 text-white shadow-xs`;
       } else {
-        btn.className = 'flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-all text-center';
+        btn.className = `${tabBase} font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60`;
       }
     }
   });
@@ -711,15 +956,35 @@ function setModalScope(scope) {
   renderCandidateList();
 }
 
+function setupModalLocationFilters() {
+  MULTI_SELECTS.modalKec = createMultiSelect('ms-modal-kecamatan', {
+    unit: 'kecamatan',
+    searchPlaceholder: 'Cari kecamatan...',
+    buttonBg: 'bg-white',
+    onChange: values => {
+      STATE.modal.filterKec = values;
+      STATE.modal.filterDesa = STATE.modal.filterDesa.filter(k => values.includes(k.split('-')[0]));
+      renderCandidateList();
+    }
+  });
+  MULTI_SELECTS.modalDesa = createMultiSelect('ms-modal-desa', {
+    unit: 'desa',
+    searchPlaceholder: 'Cari desa...',
+    buttonBg: 'bg-white',
+    onChange: values => {
+      STATE.modal.filterDesa = values;
+      renderCandidateList();
+    }
+  });
+}
+
 function updateModalLocationFilterUI() {
   const container = document.getElementById('modal-location-filters');
   const kecWrapper = document.getElementById('wrapper-modal-filter-kec');
-  const kecSelect = document.getElementById('modal-filter-kecamatan');
-  const desaWrapper = document.getElementById('wrapper-modal-filter-desa');
-  const desaSelect = document.getElementById('modal-filter-desa');
   const hintSpan = document.getElementById('modal-filter-hint');
 
   if (!container || !STATE.modal.activeUtama) return;
+  if (!MULTI_SELECTS.modalKec) setupModalLocationFilters();
 
   const target = STATE.modal.activeUtama;
   const scope = STATE.modal.scope;
@@ -733,71 +998,116 @@ function updateModalLocationFilterUI() {
 
   if (scope === 'kecamatan') {
     kecWrapper.classList.add('hidden');
-    desaWrapper.classList.remove('hidden');
     if (hintSpan) hintSpan.textContent = `Wilayah: Kecamatan ${target.kec}`;
-
-    const desas = [...new Set(STATE.data.filter(d => d.kec === target.kec && d.status === 'PENGGANTI').map(d => d.desa))].sort();
-    desaSelect.innerHTML = `<option value="">Semua Desa di ${escapeHtml(target.kec)} (${desas.length})</option>`;
-    desas.forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = d;
-      if (STATE.modal.filterDesa === d) opt.selected = true;
-      desaSelect.appendChild(opt);
-    });
   } else if (scope === 'lintas_kecamatan') {
     kecWrapper.classList.remove('hidden');
-    desaWrapper.classList.remove('hidden');
-    if (hintSpan) hintSpan.textContent = 'Pilih kecamatan & desa tujuan (opsional)';
-
-    const kecs = [...new Set(STATE.data.map(d => d.kec))].sort();
-    kecSelect.innerHTML = '<option value="">Semua Kecamatan (11)</option>';
-    kecs.forEach(k => {
-      const opt = document.createElement('option');
-      opt.value = k;
-      opt.textContent = k;
-      if (STATE.modal.filterKec === k) opt.selected = true;
-      kecSelect.appendChild(opt);
-    });
-
-    updateModalDesaOptions(STATE.modal.filterKec);
+    if (hintSpan) hintSpan.textContent = `Di luar Kecamatan ${target.kec} (opsional)`;
   }
 }
 
-function updateModalDesaOptions(selectedKec) {
-  const desaSelect = document.getElementById('modal-filter-desa');
-  if (!desaSelect) return;
+// Fill the modal kecamatan/desa dropdowns; counts = countCandidatesByLocation() for the active scope.
+function refreshModalLocationOptions(counts) {
+  const target = STATE.modal.activeUtama;
+  const scope = STATE.modal.scope;
+  if (!target || !MULTI_SELECTS.modalKec) return;
+  if (scope !== 'kecamatan' && scope !== 'lintas_kecamatan') return;
 
-  if (!selectedKec) {
-    desaSelect.innerHTML = '<option value="">Semua Desa (Pilih kecamatan dulu)</option>';
-    return;
+  const pengganti = getPenggantiList();
+  const isKecScope = scope === 'kecamatan';
+
+  if (!isKecScope) {
+    const kecOptions = getKecamatanOptions(pengganti, target.kd_kec)
+      .map(o => ({ ...o, count: counts.byKec[o.value] || 0 }));
+    MULTI_SELECTS.modalKec.setOptions(kecOptions, `Semua Kecamatan (${kecOptions.length})`);
+    MULTI_SELECTS.modalKec.setValue(STATE.modal.filterKec);
   }
 
-  const desas = [...new Set(STATE.data.filter(d => d.kec === selectedKec && d.status === 'PENGGANTI').map(d => d.desa))].sort();
-  desaSelect.innerHTML = `<option value="">Semua Desa di ${escapeHtml(selectedKec)} (${desas.length})</option>`;
-  desas.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d;
-    opt.textContent = d;
-    if (STATE.modal.filterDesa === d) opt.selected = true;
-    desaSelect.appendChild(opt);
+  const kecs = isKecScope ? [target.kd_kec] : STATE.modal.filterKec;
+  const desaOptions = getDesaOptions(pengganti, kecs)
+    .map(o => ({ ...o, count: counts.byDesa[o.value] || 0 }));
+  const allLabel = isKecScope ? `Semua Desa di ${target.kec} (${desaOptions.length})` : `Semua Desa (${desaOptions.length})`;
+  MULTI_SELECTS.modalDesa.setOptions(desaOptions, allLabel);
+  MULTI_SELECTS.modalDesa.setValue(STATE.modal.filterDesa);
+  MULTI_SELECTS.modalDesa.setDisabled(kecs.length === 0, 'Semua Desa (pilih kecamatan dulu)');
+}
+
+const SCOPES = ['sls', 'desa', 'kecamatan', 'lintas_kecamatan'];
+
+// Candidate count per scope tab. Location dropdowns are ignored because they reset on tab switch.
+function countCandidatesByScope(target, pool, opts) {
+  const counts = {};
+  SCOPES.forEach(scope => {
+    counts[scope] = getReplacementCandidates(target, pool, { ...opts, scope, filterKec: [], filterDesa: [] }).length;
+  });
+  return counts;
+}
+
+// Candidate count per kecamatan / desa within the active scope, ignoring the location dropdowns.
+function countCandidatesByLocation(target, pool, opts) {
+  const byKec = {};
+  const byDesa = {};
+  getReplacementCandidates(target, pool, { ...opts, filterKec: [], filterDesa: [] }).forEach(c => {
+    byKec[c.kd_kec] = (byKec[c.kd_kec] || 0) + 1;
+    byDesa[desaKey(c)] = (byDesa[desaKey(c)] || 0) + 1;
+  });
+  return { byKec, byDesa };
+}
+
+function renderScopeTabCounts(counts) {
+  SCOPES.forEach(scope => {
+    const badge = document.getElementById(`tab-count-${scope}`);
+    if (!badge) return;
+    const n = counts[scope];
+    let tone;
+    if (scope === STATE.modal.scope) tone = 'bg-white text-blue-700';
+    else if (n === 0) tone = 'bg-slate-200 text-slate-500';
+    else tone = 'bg-blue-100 text-blue-700';
+    badge.textContent = n;
+    badge.className = `inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-px rounded-full text-[10px] font-bold font-mono ${tone}`;
   });
 }
 
-function renderCandidateList() {
-  const target = STATE.modal.activeUtama;
-  if (!target) return;
+// Unique desa key; desa codes repeat across kecamatan, so the kecamatan code is included.
+function desaKey(item) {
+  return `${item.kd_kec}-${item.kd_desa}`;
+}
 
-  const container = document.getElementById('candidate-list-container');
-  const usedPenggantiIds = getUsedPenggantiIds();
-  const allPengganti = getPenggantiList().filter(p => !usedPenggantiIds.has(p.id));
+// Location filter shared by the main list and the replace modal (pure).
+// kecs: kd_kec values, desas: desaKey values. Several kecamatan act as OR; a picked desa
+// narrows only its own kecamatan, so a picked kecamatan without any picked desa stays whole.
+function matchesLocation(item, kecs, desas) {
+  if (kecs.length && !kecs.includes(item.kd_kec)) return false;
+  if (!desas.length) return true;
+  const narrowedKecs = new Set(desas.map(k => k.split('-')[0]));
+  return !narrowedKecs.has(item.kd_kec) || desas.includes(desaKey(item));
+}
 
-  const scope = STATE.modal.scope;
-  const requireSub = STATE.modal.requireSubsektor;
-  const prioritizeStrata = STATE.modal.prioritizeStrata;
+// Kecamatan options [{ value: kd_kec, label }] sorted by name, optionally without one kecamatan.
+function getKecamatanOptions(data, excludeKdKec) {
+  const byCode = new Map();
+  data.forEach(d => {
+    if (d.kd_kec !== excludeKdKec) byCode.set(d.kd_kec, d.kec);
+  });
+  return [...byCode].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+}
 
-  let candidates = allPengganti.filter(p => {
-    if (requireSub && p.sub !== target.sub) return false;
+// Desa options [{ value: desaKey, label, group: kecamatan }] for the given kecamatan codes.
+function getDesaOptions(data, kecCodes) {
+  const byKey = new Map();
+  data.forEach(d => {
+    if (kecCodes.includes(d.kd_kec)) byKey.set(desaKey(d), { value: desaKey(d), label: d.desa, group: d.kec });
+  });
+  return [...byKey.values()].sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
+}
+
+// Filter & rank replacement candidates for a main sample (pure, no DOM access).
+// opts: { scope, filterKec: kd_kec[], filterDesa: desaKey[], requireSubsektor, requireStrata }
+function getReplacementCandidates(target, pool, opts) {
+  const { scope, filterKec, filterDesa, requireSubsektor, requireStrata } = opts;
+
+  const candidates = pool.filter(p => {
+    if (requireSubsektor && p.sub !== target.sub) return false;
+    if (requireStrata && p.strata !== target.strata) return false;
 
     if (scope === 'sls') {
       return p.kd_kec === target.kd_kec && p.kd_desa === target.kd_desa && p.kd_sls === target.kd_sls;
@@ -805,12 +1115,10 @@ function renderCandidateList() {
       return p.kd_kec === target.kd_kec && p.kd_desa === target.kd_desa;
     } else if (scope === 'kecamatan') {
       if (p.kd_kec !== target.kd_kec) return false;
-      if (STATE.modal.filterDesa && p.desa !== STATE.modal.filterDesa) return false;
-      return true;
+      return matchesLocation(p, [], filterDesa || []);
     } else if (scope === 'lintas_kecamatan') {
-      if (STATE.modal.filterKec && p.kec !== STATE.modal.filterKec) return false;
-      if (STATE.modal.filterDesa && p.desa !== STATE.modal.filterDesa) return false;
-      return true;
+      if (p.kd_kec === target.kd_kec) return false;
+      return matchesLocation(p, filterKec || [], filterDesa || []);
     }
     return true;
   });
@@ -836,8 +1144,29 @@ function renderCandidateList() {
     c._isSameKec = isSameKec;
   });
 
-  candidates.sort((a, b) => b._score - a._score);
+  return candidates.sort((a, b) => b._score - a._score);
+}
+
+function renderCandidateList() {
+  const target = STATE.modal.activeUtama;
+  if (!target) return;
+
+  const container = document.getElementById('candidate-list-container');
+  const usedPenggantiIds = getUsedPenggantiIds();
+  const allPengganti = getPenggantiList().filter(p => !usedPenggantiIds.has(p.id));
+
+  const candidates = getReplacementCandidates(target, allPengganti, STATE.modal);
+  renderScopeTabCounts(countCandidatesByScope(target, allPengganti, STATE.modal));
+  refreshModalLocationOptions(countCandidatesByLocation(target, allPengganti, STATE.modal));
+  const subWarning = document.getElementById('warning-subsektor-deviation');
+  if (subWarning) subWarning.classList.toggle('hidden', STATE.modal.requireSubsektor);
+  const strataWarning = document.getElementById('warning-strata-deviation');
+  if (strataWarning) strataWarning.classList.toggle('hidden', STATE.modal.requireStrata);
   document.getElementById('candidate-count-header').textContent = `${candidates.length} kandidat ditemukan`;
+  const subEl = document.getElementById('candidate-list-subtitle');
+  if (subEl) {
+    subEl.textContent = formatScopeLabel(STATE.modal.scope);
+  }
 
   if (candidates.length === 0) {
     container.innerHTML = `
@@ -1467,6 +1796,211 @@ function exportDSRTFullExcel() {
   showToast('File Excel DSRT Mutakhir berhasil diunduh.', 'success');
 }
 
+// Ekspor Rekomendasi Sampel Pengganti (1 SLS, 1 Desa, 1 Kecamatan, Lintas Kecamatan) ke Excel (.xlsx)
+function exportReplacementCandidatesExcel() {
+  const target = STATE.modal.activeUtama;
+  if (!target) {
+    showToast('Tidak ada sampel utama aktif yang dipilih.', 'error');
+    return;
+  }
+
+  if (!STATE.user) {
+    showToast('Silakan login terlebih dahulu untuk mengunduh daftar pengganti.', 'error');
+    return;
+  }
+
+  if (typeof XLSX === 'undefined') {
+    alert('Pustaka SheetJS belum termuat. Pastikan file xlsx.full.min.js tersedia.');
+    return;
+  }
+
+  const usedPenggantiIds = getUsedPenggantiIds();
+  const allPengganti = getPenggantiList().filter(p => !usedPenggantiIds.has(p.id));
+
+  // Ambil kandidat untuk masing-masing 4 ruang lingkup
+  const slsCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'sls',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  const desaCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'desa',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  const kecCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'kecamatan',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  const lintasCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'lintas_kecamatan',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  // Gabungan semua kandidat unik dari 4 ruang lingkup
+  const seen = new Set();
+  const allUniqueCandidates = [];
+  [slsCandidates, desaCandidates, kecCandidates, lintasCandidates].forEach(list => {
+    list.forEach(c => {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        allUniqueCandidates.push(c);
+      }
+    });
+  });
+  allUniqueCandidates.sort((a, b) => (b._score || 0) - (a._score || 0));
+
+  const headers = [
+    'No',
+    'Skor Rekomendasi',
+    'Ruang Lingkup Terdekat',
+    'ID Assignment',
+    'Kode Identitas Pengganti',
+    'Nama KK Pengganti',
+    'Kecamatan',
+    'Desa',
+    'SLS',
+    'Alamat',
+    'Subsektor',
+    'Kesesuaian Subsektor',
+    'Strata',
+    'Kesesuaian Strata',
+    'Kode KBLI',
+    'KBLI',
+    'KBLI Identik'
+  ];
+
+  function mapCandidateToRow(c, idx, forcedScopeLabel) {
+    let scopeLabel = forcedScopeLabel;
+    if (!scopeLabel) {
+      if (c._isSameSLS) scopeLabel = '1. Dalam 1 SLS';
+      else if (c._isSameDesa) scopeLabel = '2. 1 Desa';
+      else if (c._isSameKec) scopeLabel = '3. 1 Kecamatan';
+      else scopeLabel = '4. Lintas Kecamatan';
+    }
+
+    const isSameSub = c.sub === target.sub;
+    const isSameStrata = c.strata === target.strata;
+    const isSameKBLI = c.kd_kbli === target.kd_kbli;
+
+    return [
+      idx + 1,
+      c._score || 0,
+      scopeLabel,
+      c.id,
+      c.kode,
+      c.nama,
+      c.kec,
+      c.desa,
+      c.sls,
+      c.alamat,
+      c.sub,
+      isSameSub ? 'COCOK (SAMA)' : 'DEVIASI (BEDA)',
+      c.strata,
+      isSameStrata ? 'COCOK (SAMA)' : 'DEVIASI (BEDA)',
+      c.kd_kbli,
+      c.kbli,
+      isSameKBLI ? 'YA (IDENTIK)' : 'TIDAK'
+    ];
+  }
+
+  const candidateCols = [
+    { wch: 6 },  // No
+    { wch: 18 }, // Skor Rekomendasi
+    { wch: 22 }, // Ruang Lingkup Terdekat
+    { wch: 16 }, // ID Assignment
+    { wch: 20 }, // Kode Identitas
+    { wch: 28 }, // Nama KK
+    { wch: 18 }, // Kecamatan
+    { wch: 22 }, // Desa
+    { wch: 30 }, // SLS
+    { wch: 35 }, // Alamat
+    { wch: 18 }, // Subsektor
+    { wch: 22 }, // Kesesuaian Subsektor
+    { wch: 10 }, // Strata
+    { wch: 20 }, // Kesesuaian Strata
+    { wch: 12 }, // Kode KBLI
+    { wch: 35 }, // KBLI
+    { wch: 14 }  // KBLI Identik
+  ];
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Ringkasan Sampel Utama
+  const summaryWs = XLSX.utils.aoa_to_sheet([
+    ['RINGKASAN REKOMENDASI SAMPEL PENGGANTI DSRT 7301', ''],
+    ['KABUPATEN KEPULAUAN SELAYAR', ''],
+    ['', ''],
+    ['PARAMETER SAMPEL UTAMA', 'NILAI'],
+    ['Nama Kepala Keluarga (KK)', target.nama],
+    ['Kode Identitas Sampel', target.kode],
+    ['ID Assignment', target.id],
+    ['Kecamatan', target.kec],
+    ['Desa', target.desa],
+    ['SLS', target.sls],
+    ['Alamat', target.alamat],
+    ['Subsektor', target.sub],
+    ['Strata Usaha', target.strata],
+    ['Kode KBLI', target.kd_kbli],
+    ['Deskripsi KBLI', target.kbli],
+    ['', ''],
+    ['RINGKASAN JUMLAH KANDIDAT TERSEDIA', 'JUMLAH KANDIDAT'],
+    ['1. Dalam 1 SLS', slsCandidates.length],
+    ['2. 1 Desa', desaCandidates.length],
+    ['3. 1 Kecamatan', kecCandidates.length],
+    ['4. Lintas Kecamatan', lintasCandidates.length],
+    ['Total Kandidat Unik Tersedia', allUniqueCandidates.length],
+    ['', ''],
+    ['PARAMETER FILTER MODAL', 'STATUS'],
+    ['Wajib Subsektor Sama', STATE.modal.requireSubsektor ? 'AKTIF (YA)' : 'NONAKTIF (DEVIASI)'],
+    ['Wajib Strata Sama', STATE.modal.requireStrata ? 'AKTIF (YA)' : 'NONAKTIF (DEVIASI)'],
+    ['Waktu Unduh', new Date().toLocaleString('id-ID')],
+    ['Diunduh Oleh', STATE.user ? `${STATE.user.name} (${STATE.user.username})` : 'Petugas']
+  ]);
+  summaryWs['!cols'] = [{ wch: 35 }, { wch: 45 }];
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Ringkasan Sampel Utama');
+
+  function addCandidateSheet(sheetName, candidateList, defaultScopeLabel) {
+    const sheetRows = candidateList.length > 0
+      ? candidateList.map((c, i) => mapCandidateToRow(c, i, defaultScopeLabel))
+      : [[1, '-', defaultScopeLabel, '-', '-', '(Tidak ada sampel pengganti yang memenuhi kriteria)', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']];
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sheetRows]);
+    ws['!cols'] = candidateCols;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  }
+
+  // Sheet 2: 1 SLS
+  addCandidateSheet('1. Dalam 1 SLS', slsCandidates, '1. Dalam 1 SLS');
+
+  // Sheet 3: 1 Desa
+  addCandidateSheet('2. 1 Desa', desaCandidates, '2. 1 Desa');
+
+  // Sheet 4: 1 Kecamatan
+  addCandidateSheet('3. 1 Kecamatan', kecCandidates, '3. 1 Kecamatan');
+
+  // Sheet 5: Lintas Kecamatan
+  addCandidateSheet('4. Lintas Kecamatan', lintasCandidates, '4. Lintas Kecamatan');
+
+  // Sheet 6: Semua 4 Ruang Lingkup
+  addCandidateSheet('Semua 4 Ruang Lingkup', allUniqueCandidates, null);
+
+  const cleanKode = target.kode.replace(/\s+/g, '').replace(/[^a-zA-Z0-9-]/g, '_');
+  const filename = `Daftar_Sampel_Pengganti_${cleanKode}_${formatDateForFile(new Date())}.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+  showToast(`Daftar sampel pengganti (${filename}) berhasil diunduh.`, 'success');
+}
+
 // Backward compatibility alias
 function exportBeritaAcaraCSV() { exportBeritaAcaraExcel(); }
 function exportDSRTFullCSV() { exportDSRTFullExcel(); }
@@ -1486,26 +2020,6 @@ function setupEventListeners() {
         STATE.filters.page = 1;
         renderTable();
       }, 250);
-    });
-  }
-
-  const kecSelect = document.getElementById('filter-kecamatan');
-  if (kecSelect) {
-    kecSelect.addEventListener('change', (e) => {
-      STATE.filters.kec = e.target.value;
-      STATE.filters.desa = '';
-      STATE.filters.page = 1;
-      updateDesaOptions(e.target.value);
-      renderTable();
-    });
-  }
-
-  const desaSelect = document.getElementById('filter-desa');
-  if (desaSelect) {
-    desaSelect.addEventListener('change', (e) => {
-      STATE.filters.desa = e.target.value;
-      STATE.filters.page = 1;
-      renderTable();
     });
   }
 
@@ -1531,18 +2045,17 @@ function setupEventListeners() {
   if (btnResetFilter) {
     btnResetFilter.addEventListener('click', () => {
       STATE.filters.search = '';
-      STATE.filters.kec = '';
-      STATE.filters.desa = '';
+      STATE.filters.kec = [];
+      STATE.filters.desa = [];
       STATE.filters.subsektor = '';
       STATE.filters.status = 'ALL';
       STATE.filters.page = 1;
 
       document.getElementById('search-input').value = '';
-      document.getElementById('filter-kecamatan').value = '';
-      document.getElementById('filter-desa').value = '';
       document.getElementById('filter-subsektor').value = '';
       document.getElementById('filter-status').value = 'ALL';
-      updateDesaOptions('');
+      if (MULTI_SELECTS.kec) MULTI_SELECTS.kec.setValue([]);
+      refreshMainDesaFilter();
 
       renderTable();
     });
@@ -1556,28 +2069,10 @@ function setupEventListeners() {
     });
   }
 
-  const toggleStrata = document.getElementById('toggle-prio-strata');
+  const toggleStrata = document.getElementById('toggle-req-strata');
   if (toggleStrata) {
     toggleStrata.addEventListener('change', (e) => {
-      STATE.modal.prioritizeStrata = e.target.checked;
-      renderCandidateList();
-    });
-  }
-
-  const modalKecSelect = document.getElementById('modal-filter-kecamatan');
-  if (modalKecSelect) {
-    modalKecSelect.addEventListener('change', (e) => {
-      STATE.modal.filterKec = e.target.value;
-      STATE.modal.filterDesa = '';
-      updateModalDesaOptions(e.target.value);
-      renderCandidateList();
-    });
-  }
-
-  const modalDesaSelect = document.getElementById('modal-filter-desa');
-  if (modalDesaSelect) {
-    modalDesaSelect.addEventListener('change', (e) => {
-      STATE.modal.filterDesa = e.target.value;
+      STATE.modal.requireStrata = e.target.checked;
       renderCandidateList();
     });
   }
@@ -1626,7 +2121,7 @@ function showToast(message, type = 'info') {
   if (!toast || !toastMsg) return;
 
   toastMsg.textContent = message;
-  toast.className = `fixed bottom-5 right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 ${
+  toast.className = `fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-5 sm:right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 ${
     type === 'success'
       ? 'bg-emerald-900 text-white border-emerald-700'
       : type === 'error'

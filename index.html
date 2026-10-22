@@ -86,99 +86,99 @@
   <div id="screen-app" class="hidden flex-1 flex flex-col">
     <!-- Navbar -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div class="shrink-0 w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
             7301
           </div>
-          <div>
+          <div class="min-w-0">
             <div class="flex items-center gap-2">
-              <h1 class="font-bold text-slate-900 text-sm sm:text-base leading-tight">Pergantian Sampel DSRT</h1>
+              <h1 class="font-bold text-slate-900 text-sm sm:text-base leading-tight truncate">Pergantian Sampel DSRT</h1>
               <span class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200">
                 Selayar
               </span>
             </div>
-            <p class="text-[11px] text-slate-500 leading-none mt-0.5">Badan Pusat Statistik Kab. Kepulauan Selayar</p>
+            <p class="hidden sm:block text-[11px] text-slate-500 leading-none mt-0.5">Badan Pusat Statistik Kab. Kepulauan Selayar</p>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <!-- Cloud Sync Badge & Button -->
           <button id="btn-sync-cloud" onclick="syncWithCloud(true)" title="Sinkronkan dengan data terbaru dari petugas lain"
             class="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700">
-            <svg id="sync-icon" class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg id="sync-icon" class="w-3.5 h-3.5 sm:mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <span id="sync-status-text">Sinkron</span>
+            <span id="sync-status-text" class="hidden sm:inline">Sinkron</span>
           </button>
 
           <button id="btn-reset-data" onclick="resetAllData()" title="Reset seluruh perubahan ke data awal (Hanya Admin)"
-            class="hidden md:inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200">
-            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="hidden inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200">
+            <svg class="w-3.5 h-3.5 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-            Reset Awal
+            <span class="hidden sm:inline">Reset Awal</span>
           </button>
 
-          <div class="hidden sm:flex items-center gap-1.5 pl-2 border-l border-slate-200">
+          <div class="hidden lg:flex items-center gap-1.5 pl-2 border-l border-slate-200">
             <span id="cloud-indicator" class="w-2 h-2 rounded-full bg-emerald-500" title="Cloud Sync Aktif"></span>
             <span class="text-xs font-semibold text-slate-700" id="user-display">petugas</span>
             <span id="user-role-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">PETUGAS</span>
           </div>
 
           <button id="btn-logout" onclick="handleLogout()"
-            class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all">
-            <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="inline-flex items-center px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all" title="Keluar">
+            <svg class="w-3.5 h-3.5 sm:mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Keluar
+            <span class="hidden sm:inline">Keluar</span>
           </button>
         </div>
       </div>
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
       <!-- Metrics KPI Cards -->
       <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <!-- Metric 1: Total Utama -->
-        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+        <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0">
+          <div class="text-xs font-medium text-slate-500 flex items-start justify-between gap-2">
             <span>Total Sampel Utama</span>
             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
           </div>
-          <div class="text-2xl sm:text-3xl font-bold text-slate-900 mt-2 font-mono" id="metric-total-utama">267</div>
+          <div class="text-xl sm:text-3xl font-bold break-words text-slate-900 mt-2 font-mono" id="metric-total-utama">267</div>
           <p class="text-[11px] text-slate-400 mt-1">11 Kecamatan se-Selayar</p>
         </div>
 
         <!-- Metric 2: Sampel Diganti -->
-        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+        <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0">
+          <div class="text-xs font-medium text-slate-500 flex items-start justify-between gap-2">
             <span>Sampel Diganti</span>
             <span class="w-2 h-2 rounded-full bg-amber-500"></span>
           </div>
-          <div class="text-2xl sm:text-3xl font-bold text-amber-600 mt-2 font-mono" id="metric-replaced-count">0 (0%)</div>
+          <div class="text-xl sm:text-3xl font-bold break-words text-amber-600 mt-2 font-mono" id="metric-replaced-count">0 (0%)</div>
           <p class="text-[11px] text-slate-400 mt-1" id="metric-verified-subtitle">Menggunakan sampel cadangan</p>
         </div>
 
         <!-- Metric 3: Sampel Aktif -->
-        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+        <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0">
+          <div class="text-xs font-medium text-slate-500 flex items-start justify-between gap-2">
             <span>Sampel Tetap (Aktif)</span>
             <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
           </div>
-          <div class="text-2xl sm:text-3xl font-bold text-emerald-600 mt-2 font-mono" id="metric-active-count">267</div>
+          <div class="text-xl sm:text-3xl font-bold break-words text-emerald-600 mt-2 font-mono" id="metric-active-count">267</div>
           <p class="text-[11px] text-slate-400 mt-1">Belum ada mutasi/penggantian</p>
         </div>
 
         <!-- Metric 4: Cadangan Tersedia -->
-        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div class="text-xs font-medium text-slate-500 flex items-center justify-between">
+        <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0">
+          <div class="text-xs font-medium text-slate-500 flex items-start justify-between gap-2">
             <span>Sisa Cadangan Siap Pakai</span>
             <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
           </div>
-          <div class="text-2xl sm:text-3xl font-bold text-indigo-600 mt-2 font-mono" id="metric-available-pengganti">1376 / 1376</div>
+          <div class="text-xl sm:text-3xl font-bold break-words text-indigo-600 mt-2 font-mono" id="metric-available-pengganti">1376 / 1376</div>
           <p class="text-[11px] text-slate-400 mt-1">Pool sampel pengganti</p>
         </div>
       </section>
@@ -187,7 +187,7 @@
       <section class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-4">
         <!-- Top row: Search + Export Buttons -->
         <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          <div class="relative flex-1 max-w-lg">
+          <div class="relative flex-1 lg:max-w-lg">
             <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -223,23 +223,17 @@
 
         <!-- Filter Dropdowns -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-100">
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-kecamatan">Kecamatan</label>
-            <select id="filter-kecamatan"
-              class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
-              <option value="">Semua Kecamatan</option>
-            </select>
+          <div class="min-w-0">
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="ms-filter-kecamatan-btn">Kecamatan</label>
+            <div id="ms-filter-kecamatan"></div>
           </div>
 
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-desa">Desa / Kelurahan</label>
-            <select id="filter-desa" disabled
-              class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50">
-              <option value="">Semua Desa</option>
-            </select>
+          <div class="min-w-0">
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="ms-filter-desa-btn">Desa / Kelurahan</label>
+            <div id="ms-filter-desa"></div>
           </div>
 
-          <div>
+          <div class="min-w-0">
             <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-subsektor">Subsektor</label>
             <select id="filter-subsektor"
               class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
@@ -253,11 +247,11 @@
             </select>
           </div>
 
-          <div>
+          <div class="min-w-0">
             <label class="block text-[11px] font-semibold text-slate-500 mb-1" for="filter-status">Status Penggantian</label>
             <div class="flex items-center gap-1.5">
               <select id="filter-status"
-                class="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
+                class="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
                 <option value="ALL">Semua Status</option>
                 <option value="BELUM_DIGANTI">Aktif (Belum Diganti)</option>
                 <option value="SUDAH_DIGANTI">Sudah Diganti (Semua)</option>
@@ -276,17 +270,21 @@
       </section>
 
       <!-- Table Container -->
-      <section class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <section id="table-section" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden scroll-mt-20">
         <div class="px-4 py-3 bg-slate-50/50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div class="text-xs font-medium text-slate-600" id="table-count-info">
             Memuat data sampel utama...
           </div>
-          <div class="flex items-center gap-2" id="table-pagination">
+          <div class="flex items-center gap-1.5 flex-wrap" id="table-pagination">
             <!-- Pagination buttons -->
           </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <!-- Mobile/tablet: card list -->
+        <div id="sample-card-list" class="lg:hidden divide-y divide-slate-100"></div>
+
+        <!-- Desktop: table -->
+        <div class="hidden lg:block overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
               <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] uppercase tracking-wider font-semibold text-slate-500">
@@ -319,10 +317,10 @@
   </div>
 
   <!-- ================= MODAL 1: PERGANTIAN SAMPEL INTERAKTIF ================= -->
-  <div id="modal-replace" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+  <div id="modal-replace" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center p-2 sm:p-4">
+    <div class="my-auto bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[92vh]">
       <!-- Modal Header -->
-      <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+      <div class="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
         <div>
           <h2 class="text-base font-bold text-slate-900">Pergantian Sampel Utama</h2>
           <p class="text-xs text-slate-500">Pilih unit sampel pengganti yang memenuhi kaidah metodologi</p>
@@ -335,7 +333,7 @@
       </div>
 
       <!-- Modal Body (Scrollable) -->
-      <div class="p-5 overflow-y-auto space-y-4 flex-1">
+      <div class="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1" data-ms-bound>
         <!-- Re-replace Alert Notice (when previous candidate was disqualified) -->
         <div id="modal-replace-re-replace-notice" class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 space-y-1">
           <div class="font-bold text-xs flex items-center gap-1.5">
@@ -367,7 +365,7 @@
           <div class="flex items-center gap-2 flex-wrap pt-1 text-xs">
             <span class="px-2 py-0.5 rounded bg-white font-medium text-slate-700 border border-blue-200" id="modal-utama-subsektor">-</span>
             <span class="px-2 py-0.5 rounded bg-white font-medium text-slate-700 border border-blue-200" id="modal-utama-strata">-</span>
-            <span class="text-slate-500 truncate max-w-sm" id="modal-utama-kbli">-</span>
+            <span class="text-slate-500 truncate max-w-full sm:max-w-sm" id="modal-utama-kbli">-</span>
           </div>
         </div>
 
@@ -396,34 +394,38 @@
 
         <!-- 4 Ruang Lingkup Tabs -->
         <div>
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center justify-between flex-wrap gap-x-2 gap-y-0.5 mb-2">
             <label class="text-xs font-bold text-slate-800 uppercase tracking-wide">Pilih Ruang Lingkup Pengganti:</label>
             <span id="candidate-count-header" class="text-xs font-semibold text-blue-600 font-mono">0 kandidat</span>
           </div>
 
-          <div class="flex border-b border-slate-200 bg-slate-50 rounded-xl p-1 gap-1">
+          <div class="grid grid-cols-2 sm:grid-cols-4 bg-slate-50 rounded-xl p-1 gap-1 border border-slate-200">
             <button id="tab-scope-sls" onclick="setModalScope('sls')"
-              class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-slate-600 transition-all text-center">
-              1. Dalam 1 SLS
+              class="flex items-center justify-center gap-1.5 flex-wrap px-1.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center leading-tight">
+              <span>1. Dalam 1 SLS</span>
+              <span id="tab-count-sls" class="inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-px rounded-full text-[10px] font-bold font-mono bg-slate-200 text-slate-500">0</span>
             </button>
             <button id="tab-scope-desa" onclick="setModalScope('desa')"
-              class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center">
-              2. 1 Desa
+              class="flex items-center justify-center gap-1.5 flex-wrap px-1.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center leading-tight">
+              <span>2. 1 Desa</span>
+              <span id="tab-count-desa" class="inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-px rounded-full text-[10px] font-bold font-mono bg-slate-200 text-slate-500">0</span>
             </button>
             <button id="tab-scope-kecamatan" onclick="setModalScope('kecamatan')"
-              class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center">
-              3. 1 Kecamatan
+              class="flex items-center justify-center gap-1.5 flex-wrap px-1.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center leading-tight">
+              <span>3. 1 Kecamatan</span>
+              <span id="tab-count-kecamatan" class="inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-px rounded-full text-[10px] font-bold font-mono bg-slate-200 text-slate-500">0</span>
             </button>
             <button id="tab-scope-lintas_kecamatan" onclick="setModalScope('lintas_kecamatan')"
-              class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center">
-              4. Lintas Kecamatan
+              class="flex items-center justify-center gap-1.5 flex-wrap px-1.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 transition-all text-center leading-tight">
+              <span>4. Lintas Kecamatan</span>
+              <span id="tab-count-lintas_kecamatan" class="inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-px rounded-full text-[10px] font-bold font-mono bg-slate-200 text-slate-500">0</span>
             </button>
           </div>
         </div>
 
         <!-- Modal Location Filter (Kecamatan & Desa untuk Lintas Desa / Kecamatan) -->
         <div id="modal-location-filters" class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between flex-wrap gap-x-2 gap-y-0.5">
             <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -434,19 +436,13 @@
             <span id="modal-filter-hint" class="text-[11px] text-slate-500 font-medium">Filter wilayah sesuai kebutuhan</span>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div id="wrapper-modal-filter-kec">
-              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="modal-filter-kecamatan">Kecamatan Pengganti</label>
-              <select id="modal-filter-kecamatan"
-                class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
-                <option value="">Semua Kecamatan (11)</option>
-              </select>
+            <div id="wrapper-modal-filter-kec" class="min-w-0">
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="ms-modal-kecamatan-btn">Kecamatan Pengganti</label>
+              <div id="ms-modal-kecamatan"></div>
             </div>
-            <div id="wrapper-modal-filter-desa">
-              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="modal-filter-desa">Desa Pengganti</label>
-              <select id="modal-filter-desa"
-                class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500">
-                <option value="">Semua Desa</option>
-              </select>
+            <div id="wrapper-modal-filter-desa" class="min-w-0">
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1" for="ms-modal-desa-btn">Desa Pengganti</label>
+              <div id="ms-modal-desa"></div>
             </div>
           </div>
         </div>
@@ -459,20 +455,49 @@
             <span class="font-medium text-slate-700">Wajib Subsektor Sama</span>
           </label>
           <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="toggle-prio-strata" checked
+            <input type="checkbox" id="toggle-req-strata" checked
               class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
-            <span class="font-medium text-slate-700">Prioritaskan Strata Sama</span>
+            <span class="font-medium text-slate-700">Wajib Strata Sama</span>
           </label>
+        </div>
+        <div id="warning-subsektor-deviation" class="hidden text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl font-medium">
+          ⚠ Syarat subsektor sama dinonaktifkan: kandidat beda subsektor ikut ditampilkan. Ini deviasi metodologi dan memerlukan otorisasi supervisor.
+        </div>
+        <div id="warning-strata-deviation" class="hidden text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl font-medium">
+          ⚠ Syarat strata sama dinonaktifkan: kandidat beda strata ikut ditampilkan (strata sama tetap diurutkan lebih dulu). Ini deviasi metodologi dan memerlukan otorisasi supervisor.
+        </div>
+
+        <!-- Candidate Cards Section Header -->
+        <div class="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">Daftar Rekomendasi Pengganti:</span>
+            <span id="candidate-list-subtitle" class="text-[11px] text-slate-500 font-medium">1 SLS</span>
+          </div>
+          <button id="btn-export-candidates-excel" type="button" onclick="exportReplacementCandidatesExcel()"
+            class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all shadow-2xs active:scale-95"
+            title="Unduh daftar sampel pengganti (1 SLS, 1 Desa, 1 Kecamatan, Lintas Kecamatan) ke format Excel (.xlsx)">
+            <svg class="w-3.5 h-3.5 mr-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Unduh Excel Pengganti (.xlsx)
+          </button>
         </div>
 
         <!-- Candidate Cards Container -->
-        <div id="candidate-list-container" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+        <div id="candidate-list-container" class="space-y-2.5 sm:max-h-72 sm:overflow-y-auto sm:pr-1">
           <!-- Dynamically populated candidates -->
         </div>
       </div>
 
       <!-- Modal Footer -->
-      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end">
+      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
+        <button id="btn-export-candidates-footer" type="button" onclick="exportReplacementCandidatesExcel()"
+          class="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all shadow-2xs active:scale-95">
+          <svg class="w-3.5 h-3.5 mr-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Unduh Daftar Pengganti (4 Ruang Lingkup .xlsx)
+        </button>
         <button onclick="closeReplaceModal()"
           class="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
           Tutup
@@ -482,8 +507,8 @@
   </div>
 
   <!-- ================= MODAL 2: DETAIL PERGANTIAN & ROLLBACK (UNDO) ================= -->
-  <div id="modal-detail" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
+  <div id="modal-detail" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center p-2 sm:p-4">
+    <div class="my-auto bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-200 bg-amber-50/50 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -546,23 +571,23 @@
 
         <!-- Metadata Pergantian -->
         <div class="p-3 rounded-xl bg-slate-50 space-y-1.5 border border-slate-200">
-          <div class="flex justify-between">
-            <span class="text-slate-500">Alasan Pergantian:</span>
+          <div class="flex justify-between gap-3">
+            <span class="text-slate-500 shrink-0">Alasan Pergantian:</span>
             <span class="font-semibold text-slate-800 text-right" id="detail-alasan">-</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">Ruang Lingkup:</span>
+          <div class="flex justify-between gap-3">
+            <span class="text-slate-500 shrink-0">Ruang Lingkup:</span>
             <span class="font-semibold text-blue-700 text-right" id="detail-scope">-</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">Catatan Lapangan:</span>
+          <div class="flex justify-between gap-3">
+            <span class="text-slate-500 shrink-0">Catatan Lapangan:</span>
             <span class="font-medium text-slate-700 text-right" id="detail-catatan">-</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">Waktu Penetapan:</span>
+          <div class="flex justify-between gap-3">
+            <span class="text-slate-500 shrink-0">Waktu Penetapan:</span>
             <span class="text-slate-600 font-mono text-right" id="detail-waktu">-</span>
           </div>
-          <div class="flex justify-between items-center pt-1.5 border-t border-slate-200">
+          <div class="flex justify-between items-center gap-3 pt-1.5 border-t border-slate-200">
             <span class="text-slate-500">Status Cek Admin:</span>
             <span class="font-bold text-right" id="detail-verified-badge">-</span>
           </div>
@@ -606,8 +631,8 @@
   </div>
 
   <!-- ================= MODAL 3: GUGURKAN PENGGANTI TIDAK ELIGIBLE ================= -->
-  <div id="modal-disqualify" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
+  <div id="modal-disqualify" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center p-2 sm:p-4">
+    <div class="my-auto bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-200 bg-rose-50/70 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse"></span>
@@ -661,7 +686,7 @@
         </div>
       </div>
 
-      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
         <button onclick="closeDisqualifyModal()"
           class="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
           Batal
@@ -680,7 +705,7 @@
 
   <!-- Toast Notification -->
   <div id="toast-notification"
-    class="fixed bottom-5 right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 translate-y-20 opacity-0 pointer-events-none">
+    class="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-5 sm:right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform duration-300 translate-y-20 opacity-0 pointer-events-none">
     <span id="toast-message">-</span>
   </div>
 
