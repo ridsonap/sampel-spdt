@@ -185,6 +185,15 @@ Saat tombol "Ganti Sampel" diklik:
   - Kartu/baris kandidat menampilkan: Nama KK, Kode Identitas, Alamat SLS/Desa, Subsektor, Strata, KBLI.
   - Badge kesesuaian: `Subsektor Cocok`, `Strata Cocok`, `SLS Cocok`.
   - Tombol **"Pilih Pengganti Ini"**.
+  - **Fitur Ekspor Excel Rekomendasi Pengganti (.xlsx)**:
+    - Tombol "Unduh Excel Pengganti (.xlsx)" tersedia di header list kandidat dan footer modal.
+    - Menghasilkan berkas Excel terstruktur (`Daftar_Sampel_Pengganti_[KODE]_[TGL].xlsx`) dengan 6 sheet:
+      1. `Ringkasan Sampel Utama`: Profil sampel yang diganti & ringkasan jumlah kandidat per ruang lingkup.
+      2. `1. Dalam 1 SLS`: Daftar kandidat pengganti dalam SLS yang sama.
+      3. `2. 1 Desa`: Daftar kandidat pengganti dalam Desa yang sama.
+      4. `3. 1 Kecamatan`: Daftar kandidat pengganti dalam Kecamatan yang sama.
+      5. `4. Lintas Kecamatan`: Daftar kandidat pengganti di luar Kecamatan asal.
+      6. `Semua 4 Ruang Lingkup`: Seluruh kandidat lintas 4 ruang lingkup yang diurutkan berdasarkan skor rekomendasi tertinggi.
 - **Konfirmasi Aksi**: Modal konfirmasi sebelum pergantian diterapkan permanen ke state aplikasi.
 
 ### FR-6: Penguncian Status & Pencegahan Duplikasi

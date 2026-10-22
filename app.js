@@ -1163,6 +1163,10 @@ function renderCandidateList() {
   const strataWarning = document.getElementById('warning-strata-deviation');
   if (strataWarning) strataWarning.classList.toggle('hidden', STATE.modal.requireStrata);
   document.getElementById('candidate-count-header').textContent = `${candidates.length} kandidat ditemukan`;
+  const subEl = document.getElementById('candidate-list-subtitle');
+  if (subEl) {
+    subEl.textContent = formatScopeLabel(STATE.modal.scope);
+  }
 
   if (candidates.length === 0) {
     container.innerHTML = `
@@ -1790,6 +1794,211 @@ function exportDSRTFullExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'DSRT 7301 Mutakhir');
   XLSX.writeFile(wb, `DSRT_7301_Mutakhir_${formatDateForFile(new Date())}.xlsx`);
   showToast('File Excel DSRT Mutakhir berhasil diunduh.', 'success');
+}
+
+// Ekspor Rekomendasi Sampel Pengganti (1 SLS, 1 Desa, 1 Kecamatan, Lintas Kecamatan) ke Excel (.xlsx)
+function exportReplacementCandidatesExcel() {
+  const target = STATE.modal.activeUtama;
+  if (!target) {
+    showToast('Tidak ada sampel utama aktif yang dipilih.', 'error');
+    return;
+  }
+
+  if (!STATE.user) {
+    showToast('Silakan login terlebih dahulu untuk mengunduh daftar pengganti.', 'error');
+    return;
+  }
+
+  if (typeof XLSX === 'undefined') {
+    alert('Pustaka SheetJS belum termuat. Pastikan file xlsx.full.min.js tersedia.');
+    return;
+  }
+
+  const usedPenggantiIds = getUsedPenggantiIds();
+  const allPengganti = getPenggantiList().filter(p => !usedPenggantiIds.has(p.id));
+
+  // Ambil kandidat untuk masing-masing 4 ruang lingkup
+  const slsCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'sls',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  const desaCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'desa',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  const kecCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'kecamatan',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  const lintasCandidates = getReplacementCandidates(target, allPengganti, {
+    ...STATE.modal,
+    scope: 'lintas_kecamatan',
+    filterKec: [],
+    filterDesa: []
+  });
+
+  // Gabungan semua kandidat unik dari 4 ruang lingkup
+  const seen = new Set();
+  const allUniqueCandidates = [];
+  [slsCandidates, desaCandidates, kecCandidates, lintasCandidates].forEach(list => {
+    list.forEach(c => {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        allUniqueCandidates.push(c);
+      }
+    });
+  });
+  allUniqueCandidates.sort((a, b) => (b._score || 0) - (a._score || 0));
+
+  const headers = [
+    'No',
+    'Skor Rekomendasi',
+    'Ruang Lingkup Terdekat',
+    'ID Assignment',
+    'Kode Identitas Pengganti',
+    'Nama KK Pengganti',
+    'Kecamatan',
+    'Desa',
+    'SLS',
+    'Alamat',
+    'Subsektor',
+    'Kesesuaian Subsektor',
+    'Strata',
+    'Kesesuaian Strata',
+    'Kode KBLI',
+    'KBLI',
+    'KBLI Identik'
+  ];
+
+  function mapCandidateToRow(c, idx, forcedScopeLabel) {
+    let scopeLabel = forcedScopeLabel;
+    if (!scopeLabel) {
+      if (c._isSameSLS) scopeLabel = '1. Dalam 1 SLS';
+      else if (c._isSameDesa) scopeLabel = '2. 1 Desa';
+      else if (c._isSameKec) scopeLabel = '3. 1 Kecamatan';
+      else scopeLabel = '4. Lintas Kecamatan';
+    }
+
+    const isSameSub = c.sub === target.sub;
+    const isSameStrata = c.strata === target.strata;
+    const isSameKBLI = c.kd_kbli === target.kd_kbli;
+
+    return [
+      idx + 1,
+      c._score || 0,
+      scopeLabel,
+      c.id,
+      c.kode,
+      c.nama,
+      c.kec,
+      c.desa,
+      c.sls,
+      c.alamat,
+      c.sub,
+      isSameSub ? 'COCOK (SAMA)' : 'DEVIASI (BEDA)',
+      c.strata,
+      isSameStrata ? 'COCOK (SAMA)' : 'DEVIASI (BEDA)',
+      c.kd_kbli,
+      c.kbli,
+      isSameKBLI ? 'YA (IDENTIK)' : 'TIDAK'
+    ];
+  }
+
+  const candidateCols = [
+    { wch: 6 },  // No
+    { wch: 18 }, // Skor Rekomendasi
+    { wch: 22 }, // Ruang Lingkup Terdekat
+    { wch: 16 }, // ID Assignment
+    { wch: 20 }, // Kode Identitas
+    { wch: 28 }, // Nama KK
+    { wch: 18 }, // Kecamatan
+    { wch: 22 }, // Desa
+    { wch: 30 }, // SLS
+    { wch: 35 }, // Alamat
+    { wch: 18 }, // Subsektor
+    { wch: 22 }, // Kesesuaian Subsektor
+    { wch: 10 }, // Strata
+    { wch: 20 }, // Kesesuaian Strata
+    { wch: 12 }, // Kode KBLI
+    { wch: 35 }, // KBLI
+    { wch: 14 }  // KBLI Identik
+  ];
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Ringkasan Sampel Utama
+  const summaryWs = XLSX.utils.aoa_to_sheet([
+    ['RINGKASAN REKOMENDASI SAMPEL PENGGANTI DSRT 7301', ''],
+    ['KABUPATEN KEPULAUAN SELAYAR', ''],
+    ['', ''],
+    ['PARAMETER SAMPEL UTAMA', 'NILAI'],
+    ['Nama Kepala Keluarga (KK)', target.nama],
+    ['Kode Identitas Sampel', target.kode],
+    ['ID Assignment', target.id],
+    ['Kecamatan', target.kec],
+    ['Desa', target.desa],
+    ['SLS', target.sls],
+    ['Alamat', target.alamat],
+    ['Subsektor', target.sub],
+    ['Strata Usaha', target.strata],
+    ['Kode KBLI', target.kd_kbli],
+    ['Deskripsi KBLI', target.kbli],
+    ['', ''],
+    ['RINGKASAN JUMLAH KANDIDAT TERSEDIA', 'JUMLAH KANDIDAT'],
+    ['1. Dalam 1 SLS', slsCandidates.length],
+    ['2. 1 Desa', desaCandidates.length],
+    ['3. 1 Kecamatan', kecCandidates.length],
+    ['4. Lintas Kecamatan', lintasCandidates.length],
+    ['Total Kandidat Unik Tersedia', allUniqueCandidates.length],
+    ['', ''],
+    ['PARAMETER FILTER MODAL', 'STATUS'],
+    ['Wajib Subsektor Sama', STATE.modal.requireSubsektor ? 'AKTIF (YA)' : 'NONAKTIF (DEVIASI)'],
+    ['Wajib Strata Sama', STATE.modal.requireStrata ? 'AKTIF (YA)' : 'NONAKTIF (DEVIASI)'],
+    ['Waktu Unduh', new Date().toLocaleString('id-ID')],
+    ['Diunduh Oleh', STATE.user ? `${STATE.user.name} (${STATE.user.username})` : 'Petugas']
+  ]);
+  summaryWs['!cols'] = [{ wch: 35 }, { wch: 45 }];
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Ringkasan Sampel Utama');
+
+  function addCandidateSheet(sheetName, candidateList, defaultScopeLabel) {
+    const sheetRows = candidateList.length > 0
+      ? candidateList.map((c, i) => mapCandidateToRow(c, i, defaultScopeLabel))
+      : [[1, '-', defaultScopeLabel, '-', '-', '(Tidak ada sampel pengganti yang memenuhi kriteria)', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']];
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sheetRows]);
+    ws['!cols'] = candidateCols;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  }
+
+  // Sheet 2: 1 SLS
+  addCandidateSheet('1. Dalam 1 SLS', slsCandidates, '1. Dalam 1 SLS');
+
+  // Sheet 3: 1 Desa
+  addCandidateSheet('2. 1 Desa', desaCandidates, '2. 1 Desa');
+
+  // Sheet 4: 1 Kecamatan
+  addCandidateSheet('3. 1 Kecamatan', kecCandidates, '3. 1 Kecamatan');
+
+  // Sheet 5: Lintas Kecamatan
+  addCandidateSheet('4. Lintas Kecamatan', lintasCandidates, '4. Lintas Kecamatan');
+
+  // Sheet 6: Semua 4 Ruang Lingkup
+  addCandidateSheet('Semua 4 Ruang Lingkup', allUniqueCandidates, null);
+
+  const cleanKode = target.kode.replace(/\s+/g, '').replace(/[^a-zA-Z0-9-]/g, '_');
+  const filename = `Daftar_Sampel_Pengganti_${cleanKode}_${formatDateForFile(new Date())}.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+  showToast(`Daftar sampel pengganti (${filename}) berhasil diunduh.`, 'success');
 }
 
 // Backward compatibility alias

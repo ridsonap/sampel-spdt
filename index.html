@@ -467,6 +467,22 @@
           ⚠ Syarat strata sama dinonaktifkan: kandidat beda strata ikut ditampilkan (strata sama tetap diurutkan lebih dulu). Ini deviasi metodologi dan memerlukan otorisasi supervisor.
         </div>
 
+        <!-- Candidate Cards Section Header -->
+        <div class="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">Daftar Rekomendasi Pengganti:</span>
+            <span id="candidate-list-subtitle" class="text-[11px] text-slate-500 font-medium">1 SLS</span>
+          </div>
+          <button id="btn-export-candidates-excel" type="button" onclick="exportReplacementCandidatesExcel()"
+            class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all shadow-2xs active:scale-95"
+            title="Unduh daftar sampel pengganti (1 SLS, 1 Desa, 1 Kecamatan, Lintas Kecamatan) ke format Excel (.xlsx)">
+            <svg class="w-3.5 h-3.5 mr-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Unduh Excel Pengganti (.xlsx)
+          </button>
+        </div>
+
         <!-- Candidate Cards Container -->
         <div id="candidate-list-container" class="space-y-2.5 sm:max-h-72 sm:overflow-y-auto sm:pr-1">
           <!-- Dynamically populated candidates -->
@@ -474,7 +490,14 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end">
+      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
+        <button id="btn-export-candidates-footer" type="button" onclick="exportReplacementCandidatesExcel()"
+          class="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all shadow-2xs active:scale-95">
+          <svg class="w-3.5 h-3.5 mr-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Unduh Daftar Pengganti (4 Ruang Lingkup .xlsx)
+        </button>
         <button onclick="closeReplaceModal()"
           class="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
           Tutup
